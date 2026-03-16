@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.thesslstore.com)",
+      "Bash(grep -r \"365\\\\|730\\\\|825\\\\|397\\\\|200\\\\|199\" /c/Users/bhill/source/repos/sslstore-cagateway/Setup/Templates/*.json)",
+      "Bash(start \"\" \"c:\\\\Users\\\\bhill\\\\source\\\\repos\\\\sslstore-cagateway\\\\docs\\\\ssl-validity-timeline.html\")",
+      "Bash(rm -f SslStoreCaProxy.sln)",
+      "Bash(dotnet new:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(ls \"c:\\\\Users\\\\bhill\\\\source\\\\repos\\\\sslstore-cagateway\"/*.sln)",
+      "Bash(find c:Usersbhillsourcerepossslstore-cagateway -maxdepth 1 -name *.sln -type f)",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet build:*)",
+      "Bash(ls c:/Users/bhill/source/repos/sslstore-cagateway/*.json)",
+      "Bash(node -e \":*)",
+      "Bash(xargs grep:*)"
+    ]
+  }
+}
