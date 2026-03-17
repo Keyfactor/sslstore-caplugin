@@ -91,6 +91,7 @@ namespace Keyfactor.AnyGateway.SslStore
                 throw new ArgumentException($"The following required fields are missing or empty: {string.Join(", ", missingFields)}");
             }
 
+            _config = config;
             _logger.MethodExit();
             return Ping();
         }

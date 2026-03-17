@@ -13,7 +13,16 @@
       "Bash(dotnet build:*)",
       "Bash(ls c:/Users/bhill/source/repos/sslstore-cagateway/*.json)",
       "Bash(node -e \":*)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(dotnet tool:*)",
+      "Bash(powershell -Command \"[System.Reflection.Assembly]::LoadFrom\\(''C:\\\\Users\\\\bhill\\\\.nuget\\\\packages\\\\keyfactor.anygateway.ianycaplugin\\\\3.0.0\\\\lib\\\\net6.0\\\\Keyfactor.AnyGateway.IAnyCAPlugin.dll''\\).GetTypes\\(\\) | ForEach-Object { Write-Host $_.FullName; $_.GetMethods\\(\\) | ForEach-Object { Write-Host ''  '' $_.Name ''\\('' \\($_.GetParameters\\(\\) | ForEach-Object { $_.ParameterType.Name + '' '' + $_.Name }\\) ''\\)'' } }\")",
+      "Bash(powershell -Command \"try { $asm = [System.Reflection.Assembly]::LoadFrom\\(''C:\\\\Users\\\\bhill\\\\.nuget\\\\packages\\\\keyfactor.anygateway.ianycaplugin\\\\3.0.0\\\\lib\\\\net6.0\\\\Keyfactor.AnyGateway.IAnyCAPlugin.dll''\\); $asm.GetTypes\\(\\) } catch [System.Reflection.ReflectionTypeLoadException] { $_.Exception.Types | Where-Object { $_ -ne $null } | ForEach-Object { Write-Host $_.FullName; $_.GetMethods\\(\\) | ForEach-Object { Write-Host ''  '' $_.Name ''\\('' \\($_.GetParameters\\(\\) | ForEach-Object { $_.ParameterType.ToString\\(\\) + '' '' + $_.Name }\\) ''\\)'' } } }\")",
+      "Bash(powershell -Command \"try { $asm = [System.Reflection.Assembly]::LoadFrom\\(''C:\\\\Users\\\\bhill\\\\.nuget\\\\packages\\\\keyfactor.anygateway.ianycaplugin\\\\3.0.0\\\\lib\\\\net6.0\\\\Keyfactor.AnyGateway.IAnyCAPlugin.dll''\\); $asm.GetTypes\\(\\) } catch [System.Reflection.ReflectionTypeLoadException] { $_.Exception.Types | Where-Object { $_ -ne $null } | ForEach-Object { Write-Host $_.FullName; try { $_.GetMethods\\(\\) | ForEach-Object { Write-Host \\(''  '' + $_.Name\\) } } catch { Write-Host ''  \\(methods not loadable\\)'' } } }\")",
+      "Bash(xxd /c/Users/bhill/.nuget/packages/keyfactor.anygateway.ianycaplugin/3.0.0/lib/net6.0/Keyfactor.AnyGateway.IAnyCAPlugin.dll)",
+      "Bash(dotnet ildasm:*)",
+      "Bash(dotnet-ildasm /c/Users/bhill/.nuget/packages/keyfactor.anygateway.ianycaplugin/3.0.0/lib/net6.0/Keyfactor.AnyGateway.IAnyCAPlugin.dll)",
+      "Bash(python -c \":*)",
+      "Bash(powershell -Command \"$bytes = [System.IO.File]::ReadAllBytes\\(''C:\\\\Users\\\\bhill\\\\.nuget\\\\packages\\\\keyfactor.anygateway.ianycaplugin\\\\3.0.0\\\\lib\\\\net6.0\\\\Keyfactor.AnyGateway.IAnyCAPlugin.dll''\\); $text = [System.Text.Encoding]::ASCII.GetString\\($bytes\\); $matches = [regex]::Matches\\($text, ''[A-Za-z_][A-Za-z0-9_]{5,}''\\); $matches.Value | Sort-Object -Unique | Where-Object { $_ -match ''emplate|nroll|roduct|nnot|onfig|lugin|arameter|ingle|ync|evoke|ing$|alidat|nitializ|GetCA|IAny'' }\")"
     ]
   }
 }
