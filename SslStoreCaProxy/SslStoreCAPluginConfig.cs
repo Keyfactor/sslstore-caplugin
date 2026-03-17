@@ -71,13 +71,6 @@ namespace Keyfactor.AnyGateway.SslStore
         {
             return new Dictionary<string, PropertyConfigInfo>()
             {
-                ["DNS Names Comma Separated"] = new PropertyConfigInfo()
-                {
-                    Comments = "Comma-separated list of DNS names (SANs) for the certificate.",
-                    Hidden = false,
-                    DefaultValue = "",
-                    Type = "String"
-                },
                 ["Approver Email"] = new PropertyConfigInfo()
                 {
                     Comments = "Comma-separated approver email address(es) for domain validation.",
@@ -85,11 +78,11 @@ namespace Keyfactor.AnyGateway.SslStore
                     DefaultValue = "",
                     Type = "String"
                 },
-                ["Validity Period (In Months)"] = new PropertyConfigInfo()
+                ["Validity Period (In Days)"] = new PropertyConfigInfo()
                 {
-                    Comments = "Certificate validity period in months (e.g. 12, 24, 36, 48, 60, 72).",
+                    Comments = "Certificate validity period in days (e.g. 90, 365, 730).",
                     Hidden = false,
-                    DefaultValue = "12",
+                    DefaultValue = "365",
                     Type = "String"
                 },
                 ["Admin Contact - First Name"] = new PropertyConfigInfo()

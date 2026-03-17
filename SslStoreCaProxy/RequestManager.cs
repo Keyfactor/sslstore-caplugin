@@ -28,8 +28,8 @@ namespace Keyfactor.AnyGateway.SslStore
             _sslStoreCaProxy = sslStoreCaProxy;
         }
 
-        public NewOrderRequest GetEnrollmentRequest(string csr, EnrollmentProductInfo productInfo,
-            IAnyCAPluginConfigProvider configProvider, bool isRenewalOrder)
+        public NewOrderRequest GetEnrollmentRequest(string csr, string subject, Dictionary<string, string[]> san,
+            EnrollmentProductInfo productInfo, IAnyCAPluginConfigProvider configProvider, bool isRenewalOrder)
         {
             var pemCsr = ConvertCsrToPem(csr);
 
@@ -41,7 +41,7 @@ namespace Keyfactor.AnyGateway.SslStore
                 MissingMemberHandling = MissingMemberHandling.Ignore
             };
             var request = BuildNewOrderRequest(productInfo,
-                JsonConvert.DeserializeObject<TemplateNewOrderRequest>(sampleRequest, settings), pemCsr, isRenewalOrder);
+                JsonConvert.DeserializeObject<TemplateNewOrderRequest>(sampleRequest, settings), pemCsr, subject, san, isRenewalOrder);
 
             return request;
         }
@@ -251,10 +251,20 @@ namespace Keyfactor.AnyGateway.SslStore
         }
 
         private NewOrderRequest BuildNewOrderRequest(EnrollmentProductInfo productInfo,
-            TemplateNewOrderRequest newOrderRequest, string csr, bool isRenewal)
+            TemplateNewOrderRequest newOrderRequest, string csr, string subject, Dictionary<string, string[]> san, bool isRenewal)
         {
             var customOrderId = Guid.NewGuid().ToString();
             productInfo.ProductParameters.Add("CustomOrderId", customOrderId);
+
+            // Extract domain name from CSR subject CN
+            var domainName = subject?.Split(',')
+                .Select(p => p.Trim())
+                .Where(p => p.StartsWith("CN=", StringComparison.OrdinalIgnoreCase))
+                .Select(p => p.Substring(3))
+                .FirstOrDefault() ?? "";
+
+            // Extract DNS SANs from Keyfactor san parameter
+            var dnsNames = san != null && san.ContainsKey("dns") ? san["dns"] : Array.Empty<string>();
 
             var request =
                 new JObject(
@@ -289,12 +299,12 @@ namespace Keyfactor.AnyGateway.SslStore
                                         CreatePropertyFromTemplate(
                                             "$.OrganizationInfo.OrganizationAddress.LocalityName", productInfo,
                                             newOrderRequest))))),
-                        CreatePropertyFromTemplate("$.ValidityPeriod", productInfo, newOrderRequest),
+                        new JProperty("ValidityPeriod", ConvertDaysToMonths(productInfo)),
                         new JProperty("ServerCount", 1),
                         new JProperty("CSR", csr),
-                        CreatePropertyFromTemplate("$.DomainName", productInfo, newOrderRequest),
+                        new JProperty("DomainName", domainName),
                         new JProperty("WebServerType", "Other"),
-                        CreatePropertyFromTemplate("$.DNSNames", productInfo, newOrderRequest, true),
+                        new JProperty("DNSNames", new JArray(dnsNames)),
                         new JProperty("isCUOrder", false),
                         CreatePropertyFromTemplate("$.AutoWWW", productInfo, newOrderRequest),
                         new JProperty("IsRenewalOrder", isRenewal),
@@ -393,6 +403,21 @@ namespace Keyfactor.AnyGateway.SslStore
             }
 
             return new JProperty(propertyPath.Substring(propertyPath.LastIndexOf('.') + 1), null);
+        }
+
+        private long ConvertDaysToMonths(EnrollmentProductInfo productInfo)
+        {
+            if (productInfo.ProductParameters.ContainsKey("Validity Period (In Days)") &&
+                long.TryParse(productInfo.ProductParameters["Validity Period (In Days)"], out var days))
+            {
+                // Convert days to months, rounding up so short-lived certs (e.g. 90 days) get at least 1 month
+                var months = (long)Math.Ceiling(days / 30.0);
+                _logger.LogTrace($"Validity conversion: {days} days -> {months} months");
+                return months;
+            }
+
+            _logger.LogWarning("Validity Period (In Days) not found or invalid, defaulting to 12 months");
+            return 12;
         }
 
         private string ExtractOrgId(string organization)

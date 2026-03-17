@@ -167,24 +167,33 @@ namespace Keyfactor.AnyGateway.SslStore
 
                     if (!productInfo.ProductParameters.ContainsKey("PriorCertSN"))
                     {
-                        string[] arrayProducts = Array.Empty<string>();
-                        string[] arrayApproverEmails = Array.Empty<string>();
+                        // Extract domain name from CSR subject and SANs from the Keyfactor san parameter
+                        var domainName = subject?.Split(',')
+                            .Select(p => p.Trim())
+                            .Where(p => p.StartsWith("CN=", StringComparison.OrdinalIgnoreCase))
+                            .Select(p => p.Substring(3))
+                            .FirstOrDefault() ?? "";
+                        _logger.LogTrace($"Domain Name from subject: {domainName}");
 
-                        if (productInfo.ProductParameters.ContainsKey("DNS Names Comma Separated"))
-                        {
-                            _logger.LogTrace($"DNS Comma Separated {productInfo.ProductParameters["DNS Names Comma Separated"]}");
-                            arrayProducts = productInfo.ProductParameters["DNS Names Comma Separated"].Split(new char[] { ',' });
-                        }
+                        var dnsNames = san != null && san.ContainsKey("dns") ? san["dns"] : Array.Empty<string>();
+                        _logger.LogTrace($"DNS Names from SAN: {string.Join(",", dnsNames)}");
+
+                        string[] arrayApproverEmails = Array.Empty<string>();
                         if (productInfo.ProductParameters.ContainsKey("Approver Email"))
                         {
                             _logger.LogTrace($"Approver Email {productInfo.ProductParameters["Approver Email"]}");
                             arrayApproverEmails = productInfo.ProductParameters["Approver Email"].Split(new char[] { ',' });
                         }
 
+                        // Validate approver emails against all domains (CN + SANs)
+                        var allDomains = new List<string>();
+                        if (!string.IsNullOrEmpty(domainName)) allDomains.Add(domainName);
+                        allDomains.AddRange(dnsNames.Where(d => !string.Equals(d, domainName, StringComparison.OrdinalIgnoreCase)));
+
                         var count = 1;
-                        foreach (var product in arrayProducts)
+                        foreach (var domain in allDomains)
                         {
-                            var emailApproverRequest = _requestManager.GetEmailApproverListRequest(productInfo.ProductID, product);
+                            var emailApproverRequest = _requestManager.GetEmailApproverListRequest(productInfo.ProductID, domain);
                             _logger.LogTrace($"Email Approver Request JSON {JsonConvert.SerializeObject(emailApproverRequest)}");
 
                             var emailApproverResponse = await client.SubmitEmailApproverRequestAsync(emailApproverRequest);
@@ -204,7 +213,7 @@ namespace Keyfactor.AnyGateway.SslStore
                             count++;
                         }
 
-                        var enrollmentRequest = _requestManager.GetEnrollmentRequest(csr, productInfo, Config, false);
+                        var enrollmentRequest = _requestManager.GetEnrollmentRequest(csr, subject, san, productInfo, Config, false);
                         _logger.LogTrace($"enrollmentRequest JSON {JsonConvert.SerializeObject(enrollmentRequest)}");
 
                         enrollmentResponse = await client.SubmitNewOrderRequestAsync(enrollmentRequest);

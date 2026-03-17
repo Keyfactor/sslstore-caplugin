@@ -102,7 +102,7 @@ namespace Keyfactor.AnyGateway.SslStore
                 DropdownField("Signature Hash Algorithm", SignatureHashAlgorithms),
                 DropdownField("Web Server Type", WebServerTypes),
                 TextField("Server Count"),
-                DropdownField("Validity Period (In Months)", validity),
+                TextField("Validity Period (In Days)"),
                 TextField("Organization Name"),
                 TextField("Organization Address"),
                 TextField("Organization Region"),
@@ -115,7 +115,7 @@ namespace Keyfactor.AnyGateway.SslStore
         // Group 1b: Legacy Full + DNS Names + Jurisdiction (38 fields) - digi_quickssl_md
         private static List<EnrollmentField> LegacyFullDnsJurisdictionFields(List<string> validity)
         {
-            var fields = new List<EnrollmentField> { TextField("DNS Names Comma Separated") };
+            var fields = new List<EnrollmentField>();
             fields.AddRange(LegacyFullFields(validity));
             // Insert Jurisdiction Country before Organization Phone (at the end)
             fields.Insert(fields.Count - 1, DropdownField("Organization Jurisdiction Country", CountryCodes));
@@ -127,8 +127,8 @@ namespace Keyfactor.AnyGateway.SslStore
         {
             return new List<EnrollmentField>
             {
-                TextField("DNS Names Comma Separated"),
-                DropdownField("Validity Period (In Months)", ValidityDigicert),
+
+                TextField("Validity Period (In Days)"),
                 DropdownField("Organization ID", new List<string>())
             };
         }
@@ -140,7 +140,7 @@ namespace Keyfactor.AnyGateway.SslStore
             {
                 TextField("Admin Contact - Email"),
                 TextField("Approver Email"),
-                DropdownField("Validity Period (In Months)", ValidityStandard),
+                TextField("Validity Period (In Days)"),
                 TextField("Organization Name"),
                 TextField("Organization Address"),
                 TextField("Organization State/Province"),
@@ -155,13 +155,13 @@ namespace Keyfactor.AnyGateway.SslStore
         {
             return new List<EnrollmentField>
             {
-                TextField("DNS Names Comma Separated"),
+
                 TextField("Admin Contact - First Name"),
                 TextField("Admin Contact - Last Name"),
                 TextField("Admin Contact - Phone"),
                 TextField("Admin Contact - Email"),
                 TextField("Approver Email"),
-                DropdownField("Validity Period (In Months)", ValidityDigicert),
+                TextField("Validity Period (In Days)"),
                 TextField("Organization Name"),
                 TextField("Organization Address"),
                 TextField("Organization City"),
@@ -179,7 +179,7 @@ namespace Keyfactor.AnyGateway.SslStore
             {
                 TextField("Admin Contact - Email"),
                 TextField("Approver Email"),
-                DropdownField("Validity Period (In Months)", ValidityStandard)
+                TextField("Validity Period (In Days)")
             };
         }
 
@@ -188,14 +188,14 @@ namespace Keyfactor.AnyGateway.SslStore
         {
             return new List<EnrollmentField>
             {
-                TextField("DNS Names Comma Separated"),
+
                 TextField("Admin Contact - First Name"),
                 TextField("Admin Contact - Last Name"),
                 TextField("Admin Contact - Phone"),
                 TextField("Admin Contact - Email"),
                 TextField("Admin Contact - Title"),
                 TextField("Approver Email"),
-                DropdownField("Validity Period (In Months)", ValidityDigicert),
+                TextField("Validity Period (In Days)"),
                 TextField("Organization Name"),
                 TextField("Organization Address"),
                 TextField("Organization City"),
@@ -211,10 +211,10 @@ namespace Keyfactor.AnyGateway.SslStore
         {
             return new List<EnrollmentField>
             {
-                TextField("DNS Names Comma Separated"),
+
                 TextField("Admin Contact - Email"),
                 TextField("Approver Email"),
-                DropdownField("Validity Period (In Months)", ValidityStandard)
+                TextField("Validity Period (In Days)")
             };
         }
 
@@ -225,7 +225,7 @@ namespace Keyfactor.AnyGateway.SslStore
             {
                 TextField("Technical Contact - Email"),
                 TextField("Approver Email"),
-                DropdownField("Validity Period (In Months)", ValidityDigicert)
+                TextField("Validity Period (In Days)")
             };
         }
 
@@ -234,10 +234,10 @@ namespace Keyfactor.AnyGateway.SslStore
         {
             return new List<EnrollmentField>
             {
-                TextField("DNS Names Comma Separated"),
+
                 TextField("Technical Contact - Email"),
                 TextField("Approver Email"),
-                DropdownField("Validity Period (In Months)", ValidityDigicert)
+                TextField("Validity Period (In Days)")
             };
         }
 
@@ -248,7 +248,7 @@ namespace Keyfactor.AnyGateway.SslStore
             {
                 TextField("Admin Contact - Email"),
                 TextField("Approver Email"),
-                DropdownField("Validity Period (In Months)", ValidityStandard),
+                TextField("Validity Period (In Days)"),
                 TextField("Organization Name"),
                 TextField("Organization Address"),
                 TextField("Organization State/Province"),
@@ -264,10 +264,10 @@ namespace Keyfactor.AnyGateway.SslStore
         {
             return new List<EnrollmentField>
             {
-                TextField("DNS Names Comma Separated"),
+
                 TextField("Admin Contact - Email"),
                 TextField("Approver Email"),
-                DropdownField("Validity Period (In Months)", ValidityStandard),
+                TextField("Validity Period (In Days)"),
                 TextField("Organization Name"),
                 TextField("Organization Address"),
                 TextField("Organization State/Province"),
@@ -283,10 +283,10 @@ namespace Keyfactor.AnyGateway.SslStore
         {
             return new List<EnrollmentField>
             {
-                TextField("DNS Names Comma Separated"),
+
                 TextField("Admin Contact - Email"),
                 TextField("Approver Email"),
-                DropdownField("Validity Period (In Months)", ValidityStandard),
+                TextField("Validity Period (In Days)"),
                 TextField("Organization Name"),
                 TextField("Organization Address"),
                 TextField("Organization State/Province"),
@@ -302,10 +302,10 @@ namespace Keyfactor.AnyGateway.SslStore
         {
             return new List<EnrollmentField>
             {
-                TextField("DNS Names Comma Separated"),
+
                 TextField("Admin Contact - Email"),
                 TextField("Approver Email"),
-                DropdownField("Validity Period (In Months)", ValidityStandard),
+                TextField("Validity Period (In Days)"),
                 TextField("Organization Name"),
                 TextField("Organization Address"),
                 TextField("Organization State/Province"),
@@ -322,7 +322,7 @@ namespace Keyfactor.AnyGateway.SslStore
             {
                 TextField("Admin Contact - First Name"),
                 TextField("Approver Email"),
-                DropdownField("Validity Period (In Months)", ValidityStandard),
+                TextField("Validity Period (In Days)"),
                 TextField("Organization Name"),
                 TextField("Organization Address"),
                 TextField("Organization State/Province"),
