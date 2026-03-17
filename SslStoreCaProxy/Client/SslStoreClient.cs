@@ -13,12 +13,21 @@ using Keyfactor.AnyGateway.SslStore.Interfaces;
 using Keyfactor.Logging;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 
 namespace Keyfactor.AnyGateway.SslStore.Client
 {
     public sealed class SslStoreClient : ISslStoreClient
     {
         private static readonly ILogger _logger = LogHandler.GetClassLogger<SslStoreClient>();
+
+        // Use DefaultContractResolver to ensure [JsonProperty] attributes are respected,
+        // regardless of the host application's global JsonConvert settings.
+        private static readonly JsonSerializerSettings _serializerSettings = new JsonSerializerSettings
+        {
+            ContractResolver = new DefaultContractResolver(),
+            NullValueHandling = NullValueHandling.Ignore
+        };
 
         public SslStoreClient(IAnyCAPluginConfigProvider config)
         {
@@ -36,9 +45,9 @@ namespace Keyfactor.AnyGateway.SslStore.Client
         public async Task<NewOrderResponse> SubmitNewOrderRequestAsync(NewOrderRequest newOrderRequest)
         {
             using (var resp = await RestClient.PostAsync("/rest/order/neworder", new StringContent(
-                JsonConvert.SerializeObject(newOrderRequest), Encoding.UTF8, "application/json")))
+                JsonConvert.SerializeObject(newOrderRequest, _serializerSettings), Encoding.UTF8, "application/json")))
             {
-                _logger.LogTrace(JsonConvert.SerializeObject(newOrderRequest));
+                _logger.LogTrace(JsonConvert.SerializeObject(newOrderRequest, _serializerSettings));
                 resp.EnsureSuccessStatusCode();
                 var enrollmentResponse =
                     JsonConvert.DeserializeObject<NewOrderResponse>(await resp.Content.ReadAsStringAsync());
@@ -49,9 +58,9 @@ namespace Keyfactor.AnyGateway.SslStore.Client
         public async Task<EmailApproverResponse> SubmitEmailApproverRequestAsync(EmailApproverRequest newApproverRequest)
         {
             using (var resp = await RestClient.PostAsync("/rest/order/approverlist", new StringContent(
-                JsonConvert.SerializeObject(newApproverRequest), Encoding.UTF8, "application/json")))
+                JsonConvert.SerializeObject(newApproverRequest, _serializerSettings), Encoding.UTF8, "application/json")))
             {
-                _logger.LogTrace(JsonConvert.SerializeObject(newApproverRequest));
+                _logger.LogTrace(JsonConvert.SerializeObject(newApproverRequest, _serializerSettings));
                 resp.EnsureSuccessStatusCode();
                 var enrollmentResponse =
                     JsonConvert.DeserializeObject<EmailApproverResponse>(await resp.Content.ReadAsStringAsync());
@@ -62,7 +71,7 @@ namespace Keyfactor.AnyGateway.SslStore.Client
         public async Task<NewOrderResponse> SubmitReIssueRequestAsync(ReIssueRequest reIssueOrderRequest)
         {
             using (var resp = await RestClient.PostAsync("/rest/order/reissue", new StringContent(
-                JsonConvert.SerializeObject(reIssueOrderRequest), Encoding.UTF8, "application/json")))
+                JsonConvert.SerializeObject(reIssueOrderRequest, _serializerSettings), Encoding.UTF8, "application/json")))
             {
                 var orderStatusResponse =
                     JsonConvert.DeserializeObject<NewOrderResponse>(await resp.Content.ReadAsStringAsync());
@@ -73,9 +82,9 @@ namespace Keyfactor.AnyGateway.SslStore.Client
         public async Task<NewOrderResponse> SubmitRenewRequestAsync(NewOrderRequest renewOrderRequest)
         {
             using (var resp = await RestClient.PostAsync("/rest/order/neworder", new StringContent(
-                JsonConvert.SerializeObject(renewOrderRequest), Encoding.UTF8, "application/json")))
+                JsonConvert.SerializeObject(renewOrderRequest, _serializerSettings), Encoding.UTF8, "application/json")))
             {
-                _logger.LogTrace(JsonConvert.SerializeObject(renewOrderRequest));
+                _logger.LogTrace(JsonConvert.SerializeObject(renewOrderRequest, _serializerSettings));
                 resp.EnsureSuccessStatusCode();
                 var enrollmentResponse =
                     JsonConvert.DeserializeObject<NewOrderResponse>(await resp.Content.ReadAsStringAsync());
@@ -87,9 +96,9 @@ namespace Keyfactor.AnyGateway.SslStore.Client
             DownloadCertificateRequest downloadOrderRequest)
         {
             using (var resp = await RestClient.PostAsync("/rest/order/download", new StringContent(
-                JsonConvert.SerializeObject(downloadOrderRequest), Encoding.UTF8, "application/json")))
+                JsonConvert.SerializeObject(downloadOrderRequest, _serializerSettings), Encoding.UTF8, "application/json")))
             {
-                _logger.LogTrace(JsonConvert.SerializeObject(downloadOrderRequest));
+                _logger.LogTrace(JsonConvert.SerializeObject(downloadOrderRequest, _serializerSettings));
                 resp.EnsureSuccessStatusCode();
                 var downloadOrderResponse =
                     JsonConvert.DeserializeObject<DownloadCertificateResponse>(await resp.Content.ReadAsStringAsync());
@@ -113,7 +122,7 @@ namespace Keyfactor.AnyGateway.SslStore.Client
                     var queryOrderRequest = requestManager.GetQueryOrderRequest(PageSize, pageCounter);
                     var batchItemsProcessed = 0;
                     using (var resp = await RestClient.PostAsync("/rest/order/query", new StringContent(
-                        JsonConvert.SerializeObject(queryOrderRequest), Encoding.UTF8, "application/json")))
+                        JsonConvert.SerializeObject(queryOrderRequest, _serializerSettings), Encoding.UTF8, "application/json")))
                     {
                         if (!resp.IsSuccessStatusCode)
                         {
@@ -132,7 +141,7 @@ namespace Keyfactor.AnyGateway.SslStore.Client
                             JsonConvert.DeserializeObject<List<NewOrderResponse>>(
                                 await resp.Content.ReadAsStringAsync());
 
-                        _logger.LogTrace($"Order List JSON {JsonConvert.SerializeObject(batchResponse)}");
+                        _logger.LogTrace($"Order List JSON {JsonConvert.SerializeObject(batchResponse, _serializerSettings)}");
 
                         var batchCount = batchResponse.Count;
 
@@ -185,7 +194,7 @@ namespace Keyfactor.AnyGateway.SslStore.Client
         public async Task<IOrderStatusResponse> SubmitRevokeCertificateAsync(RevokeOrderRequest revokeOrderRequest)
         {
             using (var resp = await RestClient.PostAsync("/rest/order/refundrequest", new StringContent(
-                JsonConvert.SerializeObject(revokeOrderRequest), Encoding.UTF8, "application/json")))
+                JsonConvert.SerializeObject(revokeOrderRequest, _serializerSettings), Encoding.UTF8, "application/json")))
             {
                 var revocationResponse =
                     JsonConvert.DeserializeObject<OrderStatusResponse>(await resp.Content.ReadAsStringAsync());
@@ -196,7 +205,7 @@ namespace Keyfactor.AnyGateway.SslStore.Client
         public async Task<INewOrderResponse> SubmitOrderStatusRequestAsync(OrderStatusRequest orderStatusRequest)
         {
             using (var resp = await RestClient.PostAsync("/rest/order/status", new StringContent(
-                JsonConvert.SerializeObject(orderStatusRequest), Encoding.UTF8, "application/json")))
+                JsonConvert.SerializeObject(orderStatusRequest, _serializerSettings), Encoding.UTF8, "application/json")))
             {
                 var orderStatusResponse =
                     JsonConvert.DeserializeObject<NewOrderResponse>(await resp.Content.ReadAsStringAsync());
@@ -207,7 +216,7 @@ namespace Keyfactor.AnyGateway.SslStore.Client
         public async Task<IOrganizationResponse> SubmitOrganizationListAsync(OrganizationListRequest organizationListRequest)
         {
             using (var resp = await RestClient.PostAsync("/rest/digicert/organizationlist", new StringContent(
-                JsonConvert.SerializeObject(organizationListRequest), Encoding.UTF8, "application/json")))
+                JsonConvert.SerializeObject(organizationListRequest, _serializerSettings), Encoding.UTF8, "application/json")))
             {
                 var organizationListResponse =
                     JsonConvert.DeserializeObject<OrganizationResponse>(await resp.Content.ReadAsStringAsync());
