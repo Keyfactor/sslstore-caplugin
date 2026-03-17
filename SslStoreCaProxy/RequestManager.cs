@@ -1,9 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Net;
-using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -14,7 +11,6 @@ using Keyfactor.Logging;
 using Keyfactor.PKI.Enums.EJBCA;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace Keyfactor.AnyGateway.SslStore
 {
@@ -32,18 +28,7 @@ namespace Keyfactor.AnyGateway.SslStore
             EnrollmentProductInfo productInfo, IAnyCAPluginConfigProvider configProvider, bool isRenewalOrder)
         {
             var pemCsr = ConvertCsrToPem(csr);
-
-            var sampleRequest = JsonConvert.SerializeObject(configProvider.CAConnectionData["SampleRequest"]);
-
-            var settings = new JsonSerializerSettings
-            {
-                NullValueHandling = NullValueHandling.Ignore,
-                MissingMemberHandling = MissingMemberHandling.Ignore
-            };
-            var request = BuildNewOrderRequest(productInfo,
-                JsonConvert.DeserializeObject<TemplateNewOrderRequest>(sampleRequest, settings), pemCsr, subject, san, isRenewalOrder);
-
-            return request;
+            return BuildNewOrderRequest(productInfo, pemCsr, subject, san, isRenewalOrder);
         }
 
         private string ConvertCsrToPem(string csr)
@@ -251,103 +236,87 @@ namespace Keyfactor.AnyGateway.SslStore
         }
 
         private NewOrderRequest BuildNewOrderRequest(EnrollmentProductInfo productInfo,
-            TemplateNewOrderRequest newOrderRequest, string csr, string subject, Dictionary<string, string[]> san, bool isRenewal)
+            string csr, string subject, Dictionary<string, string[]> san, bool isRenewal)
         {
-            var customOrderId = Guid.NewGuid().ToString();
-            productInfo.ProductParameters.Add("CustomOrderId", customOrderId);
+            var p = productInfo.ProductParameters;
 
             // Extract domain name from CSR subject CN
             var domainName = subject?.Split(',')
-                .Select(p => p.Trim())
-                .Where(p => p.StartsWith("CN=", StringComparison.OrdinalIgnoreCase))
-                .Select(p => p.Substring(3))
+                .Select(part => part.Trim())
+                .Where(part => part.StartsWith("CN=", StringComparison.OrdinalIgnoreCase))
+                .Select(part => part.Substring(3))
                 .FirstOrDefault() ?? "";
 
             // Extract DNS SANs from Keyfactor san parameter
-            var dnsNames = san != null && san.ContainsKey("dns") ? san["dns"] : Array.Empty<string>();
+            var dnsNames = san != null && san.ContainsKey("dns") ? san["dns"].ToList() : new List<string>();
 
-            var request =
-                new JObject(
-                    new JObject(
-                        new JProperty("AuthRequest",
-                            new JObject(new JProperty("PartnerCode", _sslStoreCaProxy.PartnerCode),
-                                new JProperty("AuthToken", _sslStoreCaProxy.AuthenticationToken))),
-                        new JProperty("ProductCode", productInfo.ProductID.Replace("-EO", "")),
-                        new JProperty("CustomOrderId", customOrderId),
-                        new JProperty("TSSOrganizationId", productInfo.ProductParameters.ContainsKey("Organization ID") ? ExtractOrgId(productInfo.ProductParameters["Organization ID"]) : null),
-                        new JProperty("OrganizationInfo",
-                            new JObject(
-                                CreatePropertyFromTemplate("$.OrganizationInfo.OrganizationName", productInfo,
-                                    newOrderRequest),
-                                CreatePropertyFromTemplate("$.OrganizationInfo.RegistrationNumber", productInfo,
-                                    newOrderRequest),
-                                CreatePropertyFromTemplate("$.OrganizationInfo.JurisdictionCountry", productInfo,
-                                    newOrderRequest),
-                                new JProperty("OrganizationAddress",
-                                    new JObject(
-                                        CreatePropertyFromTemplate(
-                                            "$.OrganizationInfo.OrganizationAddress.AddressLine1", productInfo,
-                                            newOrderRequest),
-                                        CreatePropertyFromTemplate("$.OrganizationInfo.OrganizationAddress.Region",
-                                            productInfo, newOrderRequest),
-                                        CreatePropertyFromTemplate("$.OrganizationInfo.OrganizationAddress.PostalCode",
-                                            productInfo, newOrderRequest),
-                                        CreatePropertyFromTemplate("$.OrganizationInfo.OrganizationAddress.Country",
-                                            productInfo, newOrderRequest),
-                                        CreatePropertyFromTemplate("$.OrganizationInfo.OrganizationAddress.Phone",
-                                            productInfo, newOrderRequest),
-                                        CreatePropertyFromTemplate(
-                                            "$.OrganizationInfo.OrganizationAddress.LocalityName", productInfo,
-                                            newOrderRequest))))),
-                        new JProperty("ValidityPeriod", ConvertDaysToMonths(productInfo)),
-                        new JProperty("ServerCount", 1),
-                        new JProperty("CSR", csr),
-                        new JProperty("DomainName", domainName),
-                        new JProperty("WebServerType", "Other"),
-                        new JProperty("DNSNames", new JArray(dnsNames)),
-                        new JProperty("isCUOrder", false),
-                        CreatePropertyFromTemplate("$.AutoWWW", productInfo, newOrderRequest),
-                        new JProperty("IsRenewalOrder", isRenewal),
-                        new JProperty("isTrialOrder", false),
-                        new JProperty("AdminContact",
-                            new JObject(
-                                CreatePropertyFromTemplate("$.AdminContact.FirstName", productInfo, newOrderRequest),
-                                CreatePropertyFromTemplate("$.AdminContact.LastName", productInfo, newOrderRequest),
-                                CreatePropertyFromTemplate("$.AdminContact.Phone", productInfo, newOrderRequest),
-                                CreatePropertyFromTemplate("$.AdminContact.Email", productInfo, newOrderRequest),
-                                CreatePropertyFromTemplate("$.AdminContact.Title", productInfo, newOrderRequest),
-                                CreatePropertyFromTemplate("$.AdminContact.OrganizationName", productInfo,
-                                    newOrderRequest),
-                                CreatePropertyFromTemplate("$.AdminContact.AddressLine1", productInfo, newOrderRequest),
-                                CreatePropertyFromTemplate("$.AdminContact.City", productInfo, newOrderRequest),
-                                CreatePropertyFromTemplate("$.AdminContact.Region", productInfo, newOrderRequest),
-                                CreatePropertyFromTemplate("$.AdminContact.PostalCode", productInfo, newOrderRequest),
-                                CreatePropertyFromTemplate("$.AdminContact.Country", productInfo, newOrderRequest)
-                            )),
-                        new JProperty("TechnicalContact",
-                            new JObject(
-                                CreatePropertyFromTemplate("$.TechnicalContact.FirstName", productInfo,
-                                    newOrderRequest),
-                                CreatePropertyFromTemplate("$.TechnicalContact.LastName", productInfo, newOrderRequest),
-                                CreatePropertyFromTemplate("$.TechnicalContact.Phone", productInfo, newOrderRequest),
-                                CreatePropertyFromTemplate("$.TechnicalContact.Email", productInfo, newOrderRequest),
-                                CreatePropertyFromTemplate("$.TechnicalContact.Title", productInfo, newOrderRequest),
-                                CreatePropertyFromTemplate("$.TechnicalContact.OrganizationName", productInfo,
-                                    newOrderRequest),
-                                CreatePropertyFromTemplate("$.TechnicalContact.AddressLine1", productInfo,
-                                    newOrderRequest),
-                                CreatePropertyFromTemplate("$.TechnicalContact.City", productInfo, newOrderRequest),
-                                CreatePropertyFromTemplate("$.TechnicalContact.Region", productInfo, newOrderRequest),
-                                CreatePropertyFromTemplate("$.TechnicalContact.PostalCode", productInfo,
-                                    newOrderRequest),
-                                CreatePropertyFromTemplate("$.TechnicalContact.Country", productInfo, newOrderRequest)
-                            )),
-                        CreatePropertyFromTemplate("$.ApproverEmail", productInfo, newOrderRequest),
-                        new JProperty("FileAuthDVIndicator", false),
-                        new JProperty("CNAMEAuthDVIndicator", false),
-                        new JProperty("SignatureHashAlgorithm", "PREFER_SHA2")));
+            return new NewOrderRequest
+            {
+                AuthRequest = GetAuthRequest(),
+                ProductCode = productInfo.ProductID.Replace("-EO", ""),
+                CustomOrderId = Guid.NewGuid().ToString(),
+                TssOrganizationId = p.ContainsKey("Organization ID") ? long.TryParse(ExtractOrgId(p["Organization ID"]), out var orgId) ? orgId : 0 : 0,
+                OrganizationInfo = new OrganizationInfo
+                {
+                    OrganizationName = GetParam(p, "Organization Name"),
+                    JurisdictionCountry = GetParam(p, "Organization Jurisdiction Country"),
+                    OrganizationAddress = new OrganizationAddress
+                    {
+                        AddressLine1 = GetParam(p, "Organization Address"),
+                        Region = GetParam(p, "Organization Region") ?? GetParam(p, "Organization State/Province"),
+                        PostalCode = GetParam(p, "Organization Postal Code"),
+                        Country = GetParam(p, "Organization Country"),
+                        Phone = GetParam(p, "Organization Phone"),
+                        LocalityName = GetParam(p, "Organization City")
+                    }
+                },
+                ValidityPeriod = ConvertDaysToMonths(productInfo),
+                ServerCount = 1,
+                Csr = csr,
+                DomainName = domainName,
+                WebServerType = GetParam(p, "Web Server Type") ?? "Other",
+                DnsNames = dnsNames,
+                IsCuOrder = false,
+                IsRenewalOrder = isRenewal,
+                IsTrialOrder = false,
+                AdminContact = new AdminContact
+                {
+                    FirstName = GetParam(p, "Admin Contact - First Name"),
+                    LastName = GetParam(p, "Admin Contact - Last Name"),
+                    Phone = GetParam(p, "Admin Contact - Phone"),
+                    Email = GetParam(p, "Admin Contact - Email"),
+                    Title = GetParam(p, "Admin Contact - Title"),
+                    OrganizationName = GetParam(p, "Admin Contact - Organization Name"),
+                    AddressLine1 = GetParam(p, "Admin Contact - Address"),
+                    City = GetParam(p, "Admin Contact - City"),
+                    Region = GetParam(p, "Admin Contact - Region"),
+                    PostalCode = GetParam(p, "Admin Contact - Postal Code"),
+                    Country = GetParam(p, "Admin Contact - Country")
+                },
+                TechnicalContact = new TechnicalContact
+                {
+                    FirstName = GetParam(p, "Technical Contact - First Name"),
+                    LastName = GetParam(p, "Technical Contact - Last Name"),
+                    Phone = GetParam(p, "Technical Contact - Phone"),
+                    Email = GetParam(p, "Technical Contact - Email"),
+                    Title = GetParam(p, "Technical Contact - Title"),
+                    OrganizationName = GetParam(p, "Technical Contact - Organization Name"),
+                    AddressLine1 = GetParam(p, "Technical Contact - Address"),
+                    City = GetParam(p, "Technical Contact - City"),
+                    Region = GetParam(p, "Technical Contact - Region"),
+                    PostalCode = GetParam(p, "Technical Contact - Postal Code"),
+                    Country = GetParam(p, "Technical Contact - Country")
+                },
+                ApproverEmail = GetParam(p, "Approver Email"),
+                FileAuthDvIndicator = false,
+                CnameAuthDvIndicator = false,
+                SignatureHashAlgorithm = GetParam(p, "Signature Hash Algorithm") ?? "PREFER_SHA2"
+            };
+        }
 
-            return request.ToObject<NewOrderRequest>();
+        private static string GetParam(Dictionary<string, string> parameters, string key)
+        {
+            return parameters.ContainsKey(key) ? parameters[key] : null;
         }
 
         public string GetCertificateContent(List<Certificate> certificates, string commonName)
@@ -359,50 +328,6 @@ namespace Keyfactor.AnyGateway.SslStore
             }
 
             return "";
-        }
-
-        private JArray CreateJArrayFromCommaSeparatedList(string csList)
-        {
-            var ja = new JArray();
-            foreach (var i in csList.Split(',')) ja.Add(i);
-            return ja;
-        }
-
-        private JProperty CreatePropertyFromTemplate(string propertyPath, EnrollmentProductInfo productInfo,
-            TemplateNewOrderRequest newOrderRequest, bool isArray = false)
-        {
-            var template = (JObject)JToken.FromObject(newOrderRequest);
-            var requiredForProducts =
-                new JArray(template.SelectTokens(propertyPath + ".FieldData.RequiredForProducts"));
-            var enrollmentFieldName = template.SelectToken(propertyPath + ".FieldData.EnrollmentFieldMapping");
-
-            if (requiredForProducts.Count > 0)
-            {
-                if (requiredForProducts[0].Any(i => i.Value<string>() == "All") ||
-                    requiredForProducts[0].Any(i => i.Value<string>() == productInfo.ProductID))
-                    if (enrollmentFieldName != null && enrollmentFieldName.Value<string>() != "None")
-                    {
-                        if (productInfo.ProductParameters.ContainsKey(enrollmentFieldName.Value<string>()))
-                        {
-                            var enrollmentFieldValue =
-                                productInfo.ProductParameters[enrollmentFieldName.Value<string>()];
-                            if (isArray == false)
-                                return new JProperty(propertyPath.Substring(propertyPath.LastIndexOf('.') + 1),
-                                    enrollmentFieldValue);
-                            return new JProperty(propertyPath.Substring(propertyPath.LastIndexOf('.') + 1),
-                                CreateJArrayFromCommaSeparatedList(enrollmentFieldValue));
-                        }
-
-                        _logger.LogError(
-                            $"Enrollment Field is required in the config settings but missing from the request or names do not match.: {enrollmentFieldName.Value<string>()}");
-                    }
-            }
-            else
-            {
-                _logger.LogError($"Enrollment Field is in the request but missing from config settings: {propertyPath}");
-            }
-
-            return new JProperty(propertyPath.Substring(propertyPath.LastIndexOf('.') + 1), null);
         }
 
         private long ConvertDaysToMonths(EnrollmentProductInfo productInfo)
