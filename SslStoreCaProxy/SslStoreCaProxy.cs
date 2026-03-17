@@ -187,7 +187,7 @@ namespace Keyfactor.AnyGateway.SslStore
                             var emailApproverRequest = _requestManager.GetEmailApproverListRequest(productInfo.ProductID, product);
                             _logger.LogTrace($"Email Approver Request JSON {JsonConvert.SerializeObject(emailApproverRequest)}");
 
-                            var emailApproverResponse = client.SubmitEmailApproverRequestAsync(emailApproverRequest);
+                            var emailApproverResponse = await client.SubmitEmailApproverRequestAsync(emailApproverRequest);
                             _logger.LogTrace($"Email Approver Response JSON {JsonConvert.SerializeObject(emailApproverResponse)}");
 
                             var emailValidation = ValidateEmails(emailApproverResponse, arrayApproverEmails, productInfo, count);
@@ -376,7 +376,7 @@ namespace Keyfactor.AnyGateway.SslStore
             _logger.MethodExit();
         }
 
-        private string ValidateEmails(Task<EmailApproverResponse> validEmails, string[] arrayApproverEmails, EnrollmentProductInfo productInfo, int count)
+        private string ValidateEmails(EmailApproverResponse validEmails, string[] arrayApproverEmails, EnrollmentProductInfo productInfo, int count)
         {
             if (arrayApproverEmails.Length > 1 && productInfo.ProductID.Contains("digi"))
             {
@@ -385,17 +385,17 @@ namespace Keyfactor.AnyGateway.SslStore
 
             if (count == 1 && productInfo.ProductID.Contains("digi") && arrayApproverEmails.Length > 0)
             {
-                if (!validEmails.Result.ApproverEmailList.Contains(arrayApproverEmails[0]))
+                if (!validEmails.ApproverEmailList.Contains(arrayApproverEmails[0]))
                 {
-                    return $"Digicert Approver Email must be one of the following {string.Join(",", validEmails.Result.ApproverEmailList)}";
+                    return $"Digicert Approver Email must be one of the following {string.Join(",", validEmails.ApproverEmailList)}";
                 }
             }
 
             if (!productInfo.ProductID.Contains("digi"))
             {
-                if (!validEmails.Result.ApproverEmailList.Intersect(arrayApproverEmails).Any())
+                if (!validEmails.ApproverEmailList.Intersect(arrayApproverEmails).Any())
                 {
-                    return $"Sectigo Approver Email must be one of the following {string.Join(",", validEmails.Result.ApproverEmailList)}";
+                    return $"Sectigo Approver Email must be one of the following {string.Join(",", validEmails.ApproverEmailList)}";
                 }
             }
 
