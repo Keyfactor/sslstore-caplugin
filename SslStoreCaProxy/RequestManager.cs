@@ -335,8 +335,9 @@ namespace Keyfactor.AnyGateway.SslStore
             if (productInfo.ProductParameters.ContainsKey("Validity Period (In Days)") &&
                 long.TryParse(productInfo.ProductParameters["Validity Period (In Days)"], out var days))
             {
-                // Convert days to months, rounding up so short-lived certs (e.g. 90 days) get at least 1 month
-                var months = (long)Math.Ceiling(days / 30.0);
+                // Round to nearest standard month value (30.44 days/month average)
+                // SSL Store only accepts specific values like 1, 3, 6, 12, 24, 36, etc.
+                var months = Math.Max(1, (long)Math.Round(days / 30.44));
                 _logger.LogTrace($"Validity conversion: {days} days -> {months} months");
                 return months;
             }
