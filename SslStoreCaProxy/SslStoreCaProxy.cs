@@ -28,6 +28,7 @@ namespace Keyfactor.AnyGateway.SslStore
         public string PartnerCode { get; set; }
         public string AuthenticationToken { get; set; }
         public int PageSize { get; set; }
+        public int RenewalWindow { get; set; }
 
         public void Initialize(IAnyCAPluginConfigProvider configProvider, ICertificateDataReader certificateDataReader)
         {
@@ -42,6 +43,7 @@ namespace Keyfactor.AnyGateway.SslStore
                 PartnerCode = _config.PartnerCode;
                 AuthenticationToken = _config.AuthToken;
                 PageSize = _config.PageSize > 0 ? _config.PageSize : SslStoreCAPluginConfig.DefaultPageSize;
+                RenewalWindow = _config.RenewalWindow > 0 ? _config.RenewalWindow : 30;
 
                 _requestManager = new RequestManager(this);
 
@@ -245,16 +247,32 @@ namespace Keyfactor.AnyGateway.SslStore
                     var orderStatusResponse = await client.SubmitOrderStatusRequestAsync(orderStatusRequest);
                     _logger.LogTrace($"orderStatusResponse JSON {JsonConvert.SerializeObject(orderStatusResponse)}");
 
-                    // Try renewal first, fall back to reissue
-                    var renewRequest = _requestManager.GetRenewalRequest(orderStatusResponse, csr);
-                    _logger.LogTrace($"renewRequest JSON {JsonConvert.SerializeObject(renewRequest)}");
-
-                    enrollmentResponse = await client.SubmitRenewRequestAsync(renewRequest);
-                    _logger.LogTrace($"enrollmentResponse JSON {JsonConvert.SerializeObject(enrollmentResponse)}");
-
-                    if (enrollmentResponse != null && enrollmentResponse.AuthResponse != null && enrollmentResponse.AuthResponse.IsError)
+                    // Determine renewal vs reissue based on order expiry and RenewalWindow
+                    var shouldRenew = false;
+                    if (DateTime.TryParse(orderStatusResponse.OrderExpiryDateInUtc, out var orderExpiry))
                     {
-                        _logger.LogTrace("Renewal failed, attempting reissue...");
+                        var daysUntilOrderExpiry = (orderExpiry - DateTime.UtcNow).TotalDays;
+                        _logger.LogTrace($"Order expiry: {orderExpiry:u}, days remaining: {daysUntilOrderExpiry:F0}, renewal window: {RenewalWindow} days");
+                        shouldRenew = daysUntilOrderExpiry <= RenewalWindow;
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"Could not parse OrderExpiryDateInUTC '{orderStatusResponse.OrderExpiryDateInUtc}', defaulting to renewal");
+                        shouldRenew = true;
+                    }
+
+                    if (shouldRenew)
+                    {
+                        _logger.LogTrace("Order is within renewal window, performing renewal (new order)...");
+                        var renewRequest = _requestManager.GetRenewalRequest(orderStatusResponse, csr);
+                        _logger.LogTrace($"renewRequest JSON {JsonConvert.SerializeObject(renewRequest)}");
+
+                        enrollmentResponse = await client.SubmitRenewRequestAsync(renewRequest);
+                        _logger.LogTrace($"enrollmentResponse JSON {JsonConvert.SerializeObject(enrollmentResponse)}");
+                    }
+                    else
+                    {
+                        _logger.LogTrace("Order has life remaining, performing reissue (same order)...");
                         var reIssueRequest = _requestManager.GetReIssueRequest(orderStatusResponse, csr, false);
                         _logger.LogTrace($"reIssueRequest JSON {JsonConvert.SerializeObject(reIssueRequest)}");
 

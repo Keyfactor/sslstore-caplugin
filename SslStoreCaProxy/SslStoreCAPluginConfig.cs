@@ -14,6 +14,7 @@ namespace Keyfactor.AnyGateway.SslStore
             public static string AuthToken = "AuthToken";
             public static string PageSize = "PageSize";
             public static string Enabled = "Enabled";
+            public static string RenewalWindow = "RenewalWindow";
         }
 
         public class Config
@@ -23,6 +24,7 @@ namespace Keyfactor.AnyGateway.SslStore
             public string AuthToken { get; set; }
             public int PageSize { get; set; } = DefaultPageSize;
             public bool Enabled { get; set; }
+            public int RenewalWindow { get; set; } = 30;
         }
 
         public static Dictionary<string, PropertyConfigInfo> GetPluginAnnotations()
@@ -63,6 +65,13 @@ namespace Keyfactor.AnyGateway.SslStore
                     Hidden = false,
                     DefaultValue = true,
                     Type = "Bool"
+                },
+                [ConfigConstants.RenewalWindow] = new PropertyConfigInfo()
+                {
+                    Comments = "Number of days before order expiry to trigger a renewal instead of a reissue.",
+                    Hidden = false,
+                    DefaultValue = 30,
+                    Type = "Number"
                 }
             };
         }
