@@ -283,11 +283,18 @@ namespace Keyfactor.AnyGateway.SslStore
                 };
             }
 
+            var majorStatus = newOrderResponse?.OrderStatus?.MajorStatus;
+            var status = _requestManager.MapReturnStatus(majorStatus);
+            var orderId = newOrderResponse?.TheSslStoreOrderId;
+
+            _logger.LogTrace($"Order {orderId} status: {majorStatus} -> mapped to {status}");
             _logger.MethodExit();
+
             return new EnrollmentResult
             {
-                Status = (int)EndEntityStatus.GENERATED,
-                StatusMessage = $"Order Successfully Created With Order Number {newOrderResponse?.TheSslStoreOrderId}"
+                CARequestID = orderId,
+                Status = status,
+                StatusMessage = $"Order Successfully Created With Order Number {orderId}"
             };
         }
 
