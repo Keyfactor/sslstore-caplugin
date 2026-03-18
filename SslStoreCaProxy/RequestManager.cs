@@ -184,7 +184,7 @@ namespace Keyfactor.AnyGateway.SslStore
                     return (int)EndEntityStatus.GENERATED;
                 case "Initial":
                 case "Pending":
-                    return (int)EndEntityStatus.INPROCESS;
+                    return (int)EndEntityStatus.EXTERNALVALIDATION;
                 case "Cancelled":
                     return (int)EndEntityStatus.REVOKED;
                 default:
