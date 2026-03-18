@@ -86,6 +86,7 @@ namespace Keyfactor.AnyGateway.SslStore
             {
                 AuthRequest = GetAuthRequest(),
                 TheSslStoreOrderId = orderData.TheSslStoreOrderId,
+                CustomOrderId = Guid.NewGuid().ToString(),
                 Csr = csr,
                 IsRenewalOrder = isRenewal,
                 IsWildCard = orderData.ProductCode.Contains("wc") || orderData.ProductCode.Contains("wildcard"),
@@ -132,21 +133,21 @@ namespace Keyfactor.AnyGateway.SslStore
             };
         }
 
-        public DownloadCertificateRequest GetCertificateRequest(string theSslStoreOrderId)
+        public DownloadCertificateRequest GetCertificateRequest(string customOrderId)
         {
             return new DownloadCertificateRequest
             {
                 AuthRequest = GetAuthRequest(),
-                TheSslStoreOrderId = theSslStoreOrderId
+                CustomOrderId = customOrderId
             };
         }
 
-        public RevokeOrderRequest GetRevokeOrderRequest(string theSslStoreOrderId)
+        public RevokeOrderRequest GetRevokeOrderRequest(string customOrderId)
         {
             return new RevokeOrderRequest
             {
                 AuthRequest = GetAuthRequest(),
-                TheSslStoreOrderId = theSslStoreOrderId
+                CustomOrderId = customOrderId
             };
         }
 
@@ -167,12 +168,21 @@ namespace Keyfactor.AnyGateway.SslStore
             };
         }
 
-        public OrderStatusRequest GetOrderStatusRequest(string theSslStoreId)
+        public OrderStatusRequest GetOrderStatusRequest(string customOrderId)
         {
             return new OrderStatusRequest
             {
                 AuthRequest = GetAuthRequest(),
-                TheSslStoreOrderId = theSslStoreId
+                CustomOrderId = customOrderId
+            };
+        }
+
+        public OrderStatusRequest GetOrderStatusRequestBySslStoreId(string theSslStoreOrderId)
+        {
+            return new OrderStatusRequest
+            {
+                AuthRequest = GetAuthRequest(),
+                TheSslStoreOrderId = theSslStoreOrderId
             };
         }
 
@@ -197,6 +207,7 @@ namespace Keyfactor.AnyGateway.SslStore
             return new NewOrderRequest
             {
                 AuthRequest = GetAuthRequest(),
+                CustomOrderId = Guid.NewGuid().ToString(),
                 RelatedTheSslStoreOrderId = orderData.TheSslStoreOrderId,
                 ProductCode = orderData.ProductCode,
                 AdminContact = GetAdminContact(orderData),

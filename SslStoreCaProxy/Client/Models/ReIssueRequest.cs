@@ -8,6 +8,7 @@ namespace Keyfactor.AnyGateway.SslStore.Client.Models
     {
         public AuthRequest AuthRequest { get; set; }
         [JsonProperty("TheSSLStoreOrderID")] public string TheSslStoreOrderId { get; set; }
+        [JsonProperty("CustomOrderID", NullValueHandling = NullValueHandling.Ignore)] public string CustomOrderId { get; set; }
         [JsonProperty("CSR")] public string Csr { get; set; }
         public string WebServerType { get; set; }
         [JsonProperty("DNSNames")] public List<string> DnsNames { get; set; }

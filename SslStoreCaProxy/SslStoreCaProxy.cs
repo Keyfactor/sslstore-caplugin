@@ -127,7 +127,7 @@ namespace Keyfactor.AnyGateway.SslStore
         public async Task<int> Revoke(string caRequestId, string hexSerialNumber, uint revocationReason)
         {
             _logger.MethodEntry();
-            var revokeOrderRequest = _requestManager.GetRevokeOrderRequest(caRequestId.Split('-')[0]);
+            var revokeOrderRequest = _requestManager.GetRevokeOrderRequest(caRequestId);
             _logger.LogTrace($"Revoke Request JSON {JsonConvert.SerializeObject(revokeOrderRequest)}");
             try
             {
@@ -238,10 +238,9 @@ namespace Keyfactor.AnyGateway.SslStore
                     _logger.LogTrace($"Prior Cert Serial Number: {sn}");
 
                     var caRequestId = await _certDataReader.GetRequestIDBySerialNumber(sn);
-                    _logger.LogTrace($"Prior CA Request ID: {caRequestId}");
+                    _logger.LogTrace($"Prior CA Request ID (CustomOrderId): {caRequestId}");
 
-                    var orderId = caRequestId.Split('-')[0];
-                    var orderStatusRequest = _requestManager.GetOrderStatusRequest(orderId);
+                    var orderStatusRequest = _requestManager.GetOrderStatusRequest(caRequestId);
                     _logger.LogTrace($"orderStatusRequest JSON {JsonConvert.SerializeObject(orderStatusRequest)}");
 
                     var orderStatusResponse = await client.SubmitOrderStatusRequestAsync(orderStatusRequest);
@@ -303,7 +302,7 @@ namespace Keyfactor.AnyGateway.SslStore
 
             var majorStatus = newOrderResponse?.OrderStatus?.MajorStatus;
             var status = _requestManager.MapReturnStatus(majorStatus);
-            var orderId = newOrderResponse?.TheSslStoreOrderId;
+            var orderId = newOrderResponse?.CustomOrderId;
 
             _logger.LogTrace($"Order {orderId} status: {majorStatus} -> mapped to {status}");
             _logger.MethodExit();
@@ -357,17 +356,25 @@ namespace Keyfactor.AnyGateway.SslStore
 
                     try
                     {
-                        _logger.LogTrace($"Took Certificate ID {currentResponseItem?.TheSslStoreOrderId} from Queue");
+                        _logger.LogTrace($"Took Certificate ID {currentResponseItem?.TheSslStoreOrderId} (CustomOrderId: {currentResponseItem?.CustomOrderId}) from Queue");
 
-                        var orderStatusRequest = _requestManager.GetOrderStatusRequest(currentResponseItem?.TheSslStoreOrderId);
+                        // Use TheSslStoreOrderId for sync lookups since that's what the query returns
+                        var orderStatusRequest = _requestManager.GetOrderStatusRequestBySslStoreId(currentResponseItem?.TheSslStoreOrderId);
                         var orderStatusResponse = await client.SubmitOrderStatusRequestAsync(orderStatusRequest);
+
+                        var customOrderId = orderStatusResponse.CustomOrderId;
+                        if (string.IsNullOrEmpty(customOrderId))
+                        {
+                            _logger.LogTrace($"Order {currentResponseItem?.TheSslStoreOrderId} has no CustomOrderId, skipping");
+                            continue;
+                        }
 
                         var fileContent = "";
                         var certStatus = _requestManager.MapReturnStatus(orderStatusResponse.OrderStatus.MajorStatus);
 
                         if (certStatus == (int)EndEntityStatus.GENERATED)
                         {
-                            var downloadCertificateRequest = _requestManager.GetCertificateRequest(orderStatusResponse.TheSslStoreOrderId);
+                            var downloadCertificateRequest = _requestManager.GetCertificateRequest(customOrderId);
                             var certResponse = await client.SubmitDownloadCertificateAsync(downloadCertificateRequest);
                             if (!certResponse.AuthResponse.IsError)
                             {
@@ -378,16 +385,9 @@ namespace Keyfactor.AnyGateway.SslStore
                         if ((certStatus == (int)EndEntityStatus.GENERATED && fileContent.Length > 0) ||
                             certStatus == (int)EndEntityStatus.REVOKED)
                         {
-                            string serialNumber = "";
-                            if (fileContent.Length > 0)
-                            {
-                                var cert = new X509Certificate2(Encoding.UTF8.GetBytes(fileContent));
-                                serialNumber = cert.SerialNumber;
-                            }
-
                             blockingBuffer.Add(new AnyCAPluginCertificate
                             {
-                                CARequestID = $"{orderStatusResponse.TheSslStoreOrderId}-{serialNumber}",
+                                CARequestID = customOrderId,
                                 Certificate = fileContent,
                                 Status = certStatus,
                                 ProductID = $"{orderStatusResponse.ProductCode}"
