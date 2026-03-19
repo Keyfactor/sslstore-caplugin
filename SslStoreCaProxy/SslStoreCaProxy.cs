@@ -14,6 +14,8 @@ using Keyfactor.PKI.Enums.EJBCA;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Linq;
+using Keyfactor.PKI.X509;
+
 
 namespace Keyfactor.AnyGateway.SslStore
 {
@@ -323,15 +325,30 @@ namespace Keyfactor.AnyGateway.SslStore
             var orderStatusRequest = _requestManager.GetOrderStatusRequest(caRequestId);
             _logger.LogTrace($"orderStatusRequest JSON {JsonConvert.SerializeObject(orderStatusRequest)}");
 
-            var certResponse = await client.SubmitOrderStatusRequestAsync(orderStatusRequest);
-            _logger.LogTrace($"certResponse JSON {JsonConvert.SerializeObject(certResponse)}");
+            var orderStatusResponse = await client.SubmitOrderStatusRequestAsync(orderStatusRequest);
+            _logger.LogTrace($"orderStatusResponse JSON {JsonConvert.SerializeObject(orderStatusResponse)}");
+
+            var certStatus = _requestManager.MapReturnStatus(orderStatusResponse?.OrderStatus.MajorStatus);
+            var certificate = string.Empty;
+
+            if (certStatus == (int)EndEntityStatus.GENERATED)
+            {
+                var downloadCertificateRequest = _requestManager.GetCertificateRequest(caRequestId);
+                var certResponse = await client.SubmitDownloadCertificateAsync(downloadCertificateRequest);
+                if (!certResponse.AuthResponse.IsError)
+                {
+                    var fullChain = string.Join("\n", certResponse.Certificates.Select(c => c.FileContent));
+                    var endEntityCert = X509Utilities.ExtractEndEntityCertificateContents(fullChain, null);
+                    certificate = Convert.ToBase64String(endEntityCert.RawData);
+                }
+            }
 
             _logger.MethodExit();
             return new AnyCAPluginCertificate
             {
                 CARequestID = caRequestId,
-                Certificate = string.Empty,
-                Status = _requestManager.MapReturnStatus(certResponse?.OrderStatus.MajorStatus)
+                Certificate = certificate,
+                Status = certStatus
             };
         }
 
@@ -378,10 +395,12 @@ namespace Keyfactor.AnyGateway.SslStore
                             var certResponse = await client.SubmitDownloadCertificateAsync(downloadCertificateRequest);
                             if (!certResponse.AuthResponse.IsError)
                             {
-                                fileContent = _requestManager.GetCertificateContent(certResponse.Certificates, orderStatusResponse.CommonName);
+                                var fullChain = string.Join("\n", certResponse.Certificates.Select(c => c.FileContent));
+                                var endEntityCert = X509Utilities.ExtractEndEntityCertificateContents(fullChain, null);
+                                fileContent = Convert.ToBase64String(endEntityCert.RawData);
                             }
                         }
-
+                        
                         if ((certStatus == (int)EndEntityStatus.GENERATED && fileContent.Length > 0) ||
                             certStatus == (int)EndEntityStatus.REVOKED)
                         {
