@@ -27,7 +27,7 @@
                 },
                 {
                     "name": "PageSize",
-                    "description": "The number of records to return per page during synchronization (default: 100)."
+                    "description": "The number of records to return per page during synchronization."
                 },
                 {
                     "name": "Enabled",
@@ -35,7 +35,7 @@
                 },
                 {
                     "name": "RenewalWindow",
-                    "description": "Number of days before order expiry to trigger a renewal instead of a reissue (default: 30)."
+                    "description": "Number of days before order expiry to trigger a renewal instead of a reissue."
                 }
             ],
             "enrollment_config": [
@@ -45,7 +45,7 @@
                 },
                 {
                     "name": "Validity Period (In Days)",
-                    "description": "Certificate validity period in days (e.g. 90, 365, 730). Automatically converted to months for the SSL Store API."
+                    "description": "Certificate validity period in days (e.g. 90, 365, 730)."
                 },
                 {
                     "name": "Admin Contact - First Name",
@@ -64,6 +64,34 @@
                     "description": "Administrative contact email address."
                 },
                 {
+                    "name": "Admin Contact - Title",
+                    "description": "Administrative contact job title."
+                },
+                {
+                    "name": "Admin Contact - Organization Name",
+                    "description": "Administrative contact organization name."
+                },
+                {
+                    "name": "Admin Contact - Address",
+                    "description": "Administrative contact street address."
+                },
+                {
+                    "name": "Admin Contact - City",
+                    "description": "Administrative contact city."
+                },
+                {
+                    "name": "Admin Contact - Region",
+                    "description": "Administrative contact state/province/region."
+                },
+                {
+                    "name": "Admin Contact - Postal Code",
+                    "description": "Administrative contact postal/zip code."
+                },
+                {
+                    "name": "Admin Contact - Country",
+                    "description": "Administrative contact two-letter country code (e.g. US)."
+                },
+                {
                     "name": "Technical Contact - First Name",
                     "description": "Technical contact first name."
                 },
@@ -80,13 +108,180 @@
                     "description": "Technical contact email address."
                 },
                 {
+                    "name": "Technical Contact - Organization Name",
+                    "description": "Technical contact organization name."
+                },
+                {
+                    "name": "Technical Contact - Address",
+                    "description": "Technical contact street address."
+                },
+                {
+                    "name": "Technical Contact - City",
+                    "description": "Technical contact city."
+                },
+                {
+                    "name": "Technical Contact - Region",
+                    "description": "Technical contact state/province/region."
+                },
+                {
+                    "name": "Technical Contact - Postal Code",
+                    "description": "Technical contact postal/zip code."
+                },
+                {
+                    "name": "Technical Contact - Country",
+                    "description": "Technical contact two-letter country code (e.g. US)."
+                },
+                {
                     "name": "Organization Name",
-                    "description": "Organization name for the certificate (required for OV/EV products)."
+                    "description": "Organization name for the certificate."
+                },
+                {
+                    "name": "Organization Address",
+                    "description": "Organization street address."
+                },
+                {
+                    "name": "Organization City",
+                    "description": "Organization city."
+                },
+                {
+                    "name": "Organization Region",
+                    "description": "Organization state/province/region."
+                },
+                {
+                    "name": "Organization State/Province",
+                    "description": "Organization state or province."
+                },
+                {
+                    "name": "Organization Postal Code",
+                    "description": "Organization postal/zip code."
+                },
+                {
+                    "name": "Organization Country",
+                    "description": "Organization two-letter country code (e.g. US)."
+                },
+                {
+                    "name": "Organization Phone",
+                    "description": "Organization phone number."
+                },
+                {
+                    "name": "Organization Jurisdiction Country",
+                    "description": "Jurisdiction country code for EV certificates."
                 },
                 {
                     "name": "Organization ID",
-                    "description": "DigiCert organization ID for Enterprise Organization (-EO) products."
+                    "description": "DigiCert organization ID for EO (Enterprise Organization) products."
+                },
+                {
+                    "name": "Server Count",
+                    "description": "Number of server licenses for the certificate."
+                },
+                {
+                    "name": "Web Server Type",
+                    "description": "Web server type (e.g. apacheopenssl, iis, tomcat, Other)."
+                },
+                {
+                    "name": "Signature Hash Algorithm",
+                    "description": "Signature hash algorithm (PREFER_SHA2, REQUIRE_SHA2, PREFER_SHA1)."
+                },
+                {
+                    "name": "File Auth Domain Validation",
+                    "description": "Use file-based domain validation (True/False)."
+                },
+                {
+                    "name": "CName Auth Domain Validation",
+                    "description": "Use CNAME-based domain validation (True/False)."
+                },
+                {
+                    "name": "Is CU Order?",
+                    "description": "Is this a CU (Customer) order (True/False)."
+                },
+                {
+                    "name": "Is Renewal Order?",
+                    "description": "Is this a renewal order (True/False)."
+                },
+                {
+                    "name": "Is Trial Order?",
+                    "description": "Is this a trial order (True/False)."
                 }
+            ],
+            "product_ids": [
+                "comododvucc",
+                "comodoevcsc",
+                "comodoevmdc",
+                "comodoevssl",
+                "comodomdc",
+                "comodomdcwildcard",
+                "comodopciscan",
+                "comodossl",
+                "comodoucc",
+                "comodouccwildcard",
+                "comodowildcard",
+                "digi_client_premium",
+                "digi_csc",
+                "digi_csc_ev",
+                "digi_doc_signing_ind_2000",
+                "digi_doc_signing_ind_500",
+                "digi_doc_signing_org_2000",
+                "digi_doc_signing_org_5000",
+                "elitessl",
+                "enterprisessl",
+                "essentialssl",
+                "essentialwildcard",
+                "hackerprooftm",
+                "hgpcicontrolscan",
+                "pacbasic",
+                "pacpro",
+                "pacenterprise",
+                "comodocsc",
+                "digi_quickssl_md",
+                "digi_securesite_ev_flex-EO",
+                "digi_securesite_flex-EO",
+                "digi_securesite_pro_ev_flex-EO",
+                "digi_securesite_pro_flex",
+                "digi_securesite_pro_flex-EO",
+                "digi_ssl_basic-EO",
+                "digi_ssl_ev_basic-EO",
+                "digi_sslwebserver_ev_flex-EO",
+                "digi_sslwebserver_flex-EO",
+                "digi_truebizid_ev_flex-EO",
+                "digi_truebizid_flex-EO",
+                "comodopremiumssl",
+                "comodopremiumwildcard",
+                "enterpriseprowc",
+                "instantssl",
+                "instantsslpro",
+                "sectigoovssl",
+                "sectigoovwildcard",
+                "digi_securesite_flex",
+                "digi_ssl_basic",
+                "digi_sslwebserver_flex",
+                "digi_truebizid_flex",
+                "positivessl",
+                "positivesslwildcard",
+                "sectigoevssl",
+                "sectigossl",
+                "sectigowildcard",
+                "digi_securesite_ev_flex",
+                "digi_ssl_ev_basic",
+                "digi_sslwebserver_ev_flex",
+                "digi_truebizid_ev_flex",
+                "digi_securesite_pro_ev_flex",
+                "positivemdcssl",
+                "positivemdcwildcard",
+                "sectigodvucc",
+                "sectigouccwildcard",
+                "digi_rapidssl",
+                "digi_rapidssl_wc",
+                "digi_ssl_dv_geotrust_flex",
+                "digi_ssl123_flex",
+                "enterpriseproev",
+                "positiveevssl",
+                "positiveevmdc",
+                "sectigoevmdc",
+                "enterpriseproevmdc",
+                "sectigomdc",
+                "sectigomdcwildcard",
+                "enterprisepro"
             ]
         }
     }
