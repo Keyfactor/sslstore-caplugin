@@ -259,7 +259,7 @@ namespace Keyfactor.AnyGateway.SslStore
                 .FirstOrDefault() ?? "";
 
             // Extract DNS SANs from Keyfactor san parameter
-            var dnsNames = san != null && san.ContainsKey("dns") ? san["dns"].ToList() : new List<string>();
+            var dnsNames = san != null && san.ContainsKey("dnsname") ? san["dnsname"].ToList() : new List<string>();
 
             return new NewOrderRequest
             {
