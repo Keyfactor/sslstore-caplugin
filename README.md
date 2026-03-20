@@ -53,7 +53,7 @@ The SSL Store AnyCA Gateway REST plugin extends the capabilities of the SSL Stor
 
 ## Compatibility
 
-The SSL Store AnyCA Gateway REST plugin is compatible with the Keyfactor AnyCA Gateway REST 24.2 and later.
+The SSL Store AnyCA Gateway REST plugin is compatible with the Keyfactor AnyCA Gateway REST 25.5 and later.
 
 ## Support
 The SSL Store AnyCA Gateway REST plugin is supported by Keyfactor for Keyfactor customers. If you have a support issue, please open a support ticket with your Keyfactor representative. If you have a support issue, please open a support ticket via the Keyfactor Support Portal at https://support.keyfactor.com. 
