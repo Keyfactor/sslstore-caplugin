@@ -1,11 +1,93 @@
 {
-  "$schema": "https://keyfactor.github.io/integration-manifest-schema.json",
-  "integration_type": "ca-gateway",
-  "name": "SSLStore",
-  "status": "production",
-  "release_dir": "SslStoreCaProxy/bin/Release",
-  "support_level": "kf-supported",
-  "update_catalog": true,
-  "link_github": true,
-  "description": "SSLStore is a certificate reseller with access to over 80 certificate products. Vendors include Digicert and Sectigo and all their acquired companies such as RapidSSL, Geotrust and Comodo. There is one API for all these products so a single integration to the SSLStore can get you instant access to over 80 Certificate products."
+    "$schema": "https://keyfactor.github.io/v2/integration-manifest-schema.json",
+    "name": "SSL Store AnyCA REST plugin",
+    "release_dir": "SslStoreCaProxy/bin/Release",
+    "release_project": "SslStoreCaProxy/SslStoreCaProxy.csproj",
+    "description": "AnyCA Gateway REST plugin that extends SSL Store Certificate Authority Service to Keyfactor Command. SSL Store is a certificate reseller providing access to 80+ certificate products from vendors including DigiCert, Sectigo, RapidSSL, GeoTrust, and Comodo through a single API.",
+    "status": "production",
+    "integration_type": "anyca-plugin",
+    "support_level": "kf-supported",
+    "link_github": true,
+    "update_catalog": true,
+    "gateway_framework": "24.2",
+    "about": {
+        "carest": {
+            "ca_plugin_config": [
+                {
+                    "name": "SSLStoreURL",
+                    "description": "The Base URL for the SSL Store API endpoint (e.g. https://sandbox-wbapi.thesslstore.com)."
+                },
+                {
+                    "name": "PartnerCode",
+                    "description": "The Partner Code obtained from SSL Store."
+                },
+                {
+                    "name": "AuthToken",
+                    "description": "The Authentication Token obtained from SSL Store."
+                },
+                {
+                    "name": "PageSize",
+                    "description": "The number of records to return per page during synchronization (default: 100)."
+                },
+                {
+                    "name": "Enabled",
+                    "description": "Flag to Enable or Disable the CA connector."
+                },
+                {
+                    "name": "RenewalWindow",
+                    "description": "Number of days before order expiry to trigger a renewal instead of a reissue (default: 30)."
+                }
+            ],
+            "enrollment_config": [
+                {
+                    "name": "Approver Email",
+                    "description": "Comma-separated approver email address(es) for domain validation."
+                },
+                {
+                    "name": "Validity Period (In Days)",
+                    "description": "Certificate validity period in days (e.g. 90, 365, 730). Automatically converted to months for the SSL Store API."
+                },
+                {
+                    "name": "Admin Contact - First Name",
+                    "description": "Administrative contact first name."
+                },
+                {
+                    "name": "Admin Contact - Last Name",
+                    "description": "Administrative contact last name."
+                },
+                {
+                    "name": "Admin Contact - Phone",
+                    "description": "Administrative contact phone number."
+                },
+                {
+                    "name": "Admin Contact - Email",
+                    "description": "Administrative contact email address."
+                },
+                {
+                    "name": "Technical Contact - First Name",
+                    "description": "Technical contact first name."
+                },
+                {
+                    "name": "Technical Contact - Last Name",
+                    "description": "Technical contact last name."
+                },
+                {
+                    "name": "Technical Contact - Phone",
+                    "description": "Technical contact phone number."
+                },
+                {
+                    "name": "Technical Contact - Email",
+                    "description": "Technical contact email address."
+                },
+                {
+                    "name": "Organization Name",
+                    "description": "Organization name for the certificate (required for OV/EV products)."
+                },
+                {
+                    "name": "Organization ID",
+                    "description": "DigiCert organization ID for Enterprise Organization (-EO) products."
+                }
+            ]
+        }
+    }
 }
