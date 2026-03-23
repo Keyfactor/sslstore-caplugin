@@ -461,26 +461,6 @@ The plugin uses a configurable **Renewal Window** (default: 30 days) to determin
     * **Is Trial Order?** - Is this a trial order (True/False). 
 
 
-## Installation
-
-1. Install the AnyCA Gateway REST per the [official Keyfactor documentation](https://software.keyfactor.com/Guides/AnyCAGatewayREST/Content/AnyCAGatewayREST/InstallIntroduction.htm).
-
-2. On the server hosting the AnyCA Gateway REST, download and unzip the latest [SSL Store AnyCA Gateway REST plugin](https://github.com/Keyfactor/sslstore-caplugin/releases/latest) from GitHub.
-
-3. Copy the unzipped directory (usually called `net6.0` or `net8.0`) to the Extensions directory:
-
-    ```shell
-    Depending on your AnyCA Gateway REST version, copy the unzipped directory to one of the following locations:
-    Program Files\Keyfactor\AnyCA Gateway\AnyGatewayREST\net6.0\Extensions
-    Program Files\Keyfactor\AnyCA Gateway\AnyGatewayREST\net8.0\Extensions
-    ```
-
-    > The directory containing the SSL Store AnyCA Gateway REST plugin DLLs (`net6.0` or `net8.0`) can be named anything, as long as it is unique within the `Extensions` directory.
-
-4. Restart the AnyCA Gateway REST service.
-
-5. Navigate to the AnyCA Gateway REST portal and verify that the Gateway recognizes the SSL Store plugin by hovering over the ⓘ symbol to the right of the Gateway on the top left of the portal.
-
 
 ## License
 
