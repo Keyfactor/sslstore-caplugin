@@ -1,0 +1,10 @@
+{
+  "extensions": {
+    "Keyfactor.AnyGateway.Extensions.IAnyCAPlugin": {
+      "SslStoreCaPlugin": {
+        "assemblypath": "SslStoreCaProxy.dll",
+        "TypeFullName": "Keyfactor.AnyGateway.SslStore.SslStoreCaProxy"
+      }
+    }
+  }
+}
