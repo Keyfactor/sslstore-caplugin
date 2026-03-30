@@ -198,7 +198,7 @@ namespace Keyfactor.AnyGateway.SslStore
                 case "Cancelled":
                     return (int)EndEntityStatus.REVOKED;
                 default:
-                    return (int)EndEntityStatus.FAILED;
+                    return (int)EndEntityStatus.NEW;
             }
         }
 
