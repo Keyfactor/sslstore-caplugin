@@ -279,6 +279,10 @@ namespace Keyfactor.AnyGateway.SslStore
 
                         enrollmentResponse = await client.SubmitReIssueRequestAsync(reIssueRequest);
                         _logger.LogTrace($"reissue enrollmentResponse JSON {JsonConvert.SerializeObject(enrollmentResponse)}");
+
+                        // SSL Store API ignores the CustomOrderId we send on reissue and returns the original order's ID.
+                        // Override it with our generated ID so the framework can create a new DB record.
+                        enrollmentResponse.CustomOrderId = reIssueRequest.CustomOrderId;
                     }
                 }
 
