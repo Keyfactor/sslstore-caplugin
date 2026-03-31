@@ -142,12 +142,30 @@ namespace Keyfactor.AnyGateway.SslStore
             };
         }
 
+        public DownloadCertificateRequest GetCertificateRequestBySslStoreId(string theSslStoreOrderId)
+        {
+            return new DownloadCertificateRequest
+            {
+                AuthRequest = GetAuthRequest(),
+                TheSslStoreOrderId = theSslStoreOrderId
+            };
+        }
+
         public RevokeOrderRequest GetRevokeOrderRequest(string customOrderId)
         {
             return new RevokeOrderRequest
             {
                 AuthRequest = GetAuthRequest(),
                 CustomOrderId = customOrderId
+            };
+        }
+
+        public RevokeOrderRequest GetRevokeOrderRequestBySslStoreId(string theSslStoreOrderId)
+        {
+            return new RevokeOrderRequest
+            {
+                AuthRequest = GetAuthRequest(),
+                TheSslStoreOrderId = theSslStoreOrderId
             };
         }
 
