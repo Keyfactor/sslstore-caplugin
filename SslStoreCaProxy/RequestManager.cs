@@ -86,7 +86,7 @@ namespace Keyfactor.AnyGateway.SslStore
             {
                 AuthRequest = GetAuthRequest(),
                 TheSslStoreOrderId = orderData.TheSslStoreOrderId,
-                CustomOrderId = orderData.CustomOrderId,
+                CustomOrderId = Guid.NewGuid().ToString(),
                 Csr = csr,
                 IsRenewalOrder = isRenewal,
                 IsWildCard = orderData.ProductCode.Contains("wc") || orderData.ProductCode.Contains("wildcard"),
