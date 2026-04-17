@@ -129,7 +129,16 @@ namespace Keyfactor.AnyGateway.SslStore
         public async Task<int> Revoke(string caRequestId, string hexSerialNumber, uint revocationReason)
         {
             _logger.MethodEntry();
-            var revokeOrderRequest = _requestManager.GetRevokeOrderRequest(caRequestId);
+            var sslStoreOrderId = ParseSslStoreOrderId(caRequestId);
+            RevokeOrderRequest revokeOrderRequest;
+            if (sslStoreOrderId != null)
+            {
+                revokeOrderRequest = _requestManager.GetRevokeOrderRequestBySslStoreId(sslStoreOrderId);
+            }
+            else
+            {
+                revokeOrderRequest = _requestManager.GetRevokeOrderRequest(caRequestId);
+            }
             _logger.LogTrace($"Revoke Request JSON {JsonConvert.SerializeObject(revokeOrderRequest)}");
             try
             {
@@ -240,9 +249,20 @@ namespace Keyfactor.AnyGateway.SslStore
                     _logger.LogTrace($"Prior Cert Serial Number: {sn}");
 
                     var caRequestId = await _certDataReader.GetRequestIDBySerialNumber(sn);
-                    _logger.LogTrace($"Prior CA Request ID (CustomOrderId): {caRequestId}");
+                    _logger.LogTrace($"Prior CA Request ID: {caRequestId}");
 
-                    var orderStatusRequest = _requestManager.GetOrderStatusRequest(caRequestId);
+                    var priorSslStoreOrderId = ParseSslStoreOrderId(caRequestId);
+                    OrderStatusRequest orderStatusRequest;
+                    if (priorSslStoreOrderId != null)
+                    {
+                        _logger.LogTrace($"Parsed TheSSLStoreOrderID: {priorSslStoreOrderId}");
+                        orderStatusRequest = _requestManager.GetOrderStatusRequestBySslStoreId(priorSslStoreOrderId);
+                    }
+                    else
+                    {
+                        _logger.LogTrace($"Legacy GUID format, querying by CustomOrderId: {caRequestId}");
+                        orderStatusRequest = _requestManager.GetOrderStatusRequest(caRequestId);
+                    }
                     _logger.LogTrace($"orderStatusRequest JSON {JsonConvert.SerializeObject(orderStatusRequest)}");
 
                     var orderStatusResponse = await client.SubmitOrderStatusRequestAsync(orderStatusRequest);
@@ -290,6 +310,36 @@ namespace Keyfactor.AnyGateway.SslStore
             }
         }
 
+        /// <summary>
+        /// Builds a composite CARequestID in the format "{TheSSLStoreOrderID}-{PartnerOrderID}".
+        /// This ensures uniqueness across reissues (same order, different PartnerOrderID).
+        /// </summary>
+        private static string BuildCompositeRequestId(string theSslStoreOrderId, string partnerOrderId)
+        {
+            return $"{theSslStoreOrderId}-{partnerOrderId}";
+        }
+
+        /// <summary>
+        /// Parses the TheSSLStoreOrderID from a CARequestID. Supports both composite format
+        /// ("{TheSSLStoreOrderID}-{PartnerOrderID}") and legacy GUID format (falls back to
+        /// treating the whole string as a CustomOrderId for backward compatibility).
+        /// </summary>
+        private static string ParseSslStoreOrderId(string caRequestId)
+        {
+            if (string.IsNullOrEmpty(caRequestId)) return caRequestId;
+
+            var dashIndex = caRequestId.IndexOf('-');
+            // Composite IDs have a numeric TheSSLStoreOrderID before the first dash.
+            // Legacy GUIDs have hex chars before the first dash so we check for digits only.
+            if (dashIndex > 0 && caRequestId.Substring(0, dashIndex).All(char.IsDigit))
+            {
+                return caRequestId.Substring(0, dashIndex);
+            }
+
+            // Legacy GUID format — return as-is for backward compatibility
+            return null;
+        }
+
         private EnrollmentResult GetEnrollmentResult(INewOrderResponse newOrderResponse)
         {
             if (newOrderResponse != null && newOrderResponse.AuthResponse.IsError)
@@ -304,16 +354,16 @@ namespace Keyfactor.AnyGateway.SslStore
 
             var majorStatus = newOrderResponse?.OrderStatus?.MajorStatus;
             var status = _requestManager.MapReturnStatus(majorStatus);
-            var orderId = newOrderResponse?.CustomOrderId;
+            var compositeId = BuildCompositeRequestId(newOrderResponse?.TheSslStoreOrderId, newOrderResponse?.PartnerOrderId);
 
-            _logger.LogTrace($"Order {orderId} status: {majorStatus} -> mapped to {status}");
+            _logger.LogTrace($"Order {compositeId} (SSLStoreOrderId: {newOrderResponse?.TheSslStoreOrderId}, PartnerOrderId: {newOrderResponse?.PartnerOrderId}) status: {majorStatus} -> mapped to {status}");
             _logger.MethodExit();
 
             return new EnrollmentResult
             {
-                CARequestID = orderId,
+                CARequestID = compositeId,
                 Status = status,
-                StatusMessage = $"Order Successfully Created With Order Number {orderId}"
+                StatusMessage = $"Order Successfully Created With Order Number {compositeId}"
             };
         }
 
@@ -322,8 +372,19 @@ namespace Keyfactor.AnyGateway.SslStore
             _logger.MethodEntry();
 
             var client = new SslStoreClient(Config);
-            var orderStatusRequest = _requestManager.GetOrderStatusRequest(caRequestId);
-            _logger.LogTrace($"orderStatusRequest JSON {JsonConvert.SerializeObject(orderStatusRequest)}");
+            var sslStoreOrderId = ParseSslStoreOrderId(caRequestId);
+
+            OrderStatusRequest orderStatusRequest;
+            if (sslStoreOrderId != null)
+            {
+                _logger.LogTrace($"Parsed TheSSLStoreOrderID: {sslStoreOrderId} from CARequestID: {caRequestId}");
+                orderStatusRequest = _requestManager.GetOrderStatusRequestBySslStoreId(sslStoreOrderId);
+            }
+            else
+            {
+                _logger.LogTrace($"Legacy GUID format, querying by CustomOrderId: {caRequestId}");
+                orderStatusRequest = _requestManager.GetOrderStatusRequest(caRequestId);
+            }
 
             var orderStatusResponse = await client.SubmitOrderStatusRequestAsync(orderStatusRequest);
             _logger.LogTrace($"orderStatusResponse JSON {JsonConvert.SerializeObject(orderStatusResponse)}");
@@ -333,7 +394,7 @@ namespace Keyfactor.AnyGateway.SslStore
 
             if (certStatus == (int)EndEntityStatus.GENERATED)
             {
-                var downloadCertificateRequest = _requestManager.GetCertificateRequest(caRequestId);
+                var downloadCertificateRequest = _requestManager.GetCertificateRequestBySslStoreId(sslStoreOrderId ?? orderStatusResponse.TheSslStoreOrderId);
                 var certResponse = await client.SubmitDownloadCertificateAsync(downloadCertificateRequest);
                 if (!certResponse.AuthResponse.IsError)
                 {
@@ -379,19 +440,21 @@ namespace Keyfactor.AnyGateway.SslStore
                         var orderStatusRequest = _requestManager.GetOrderStatusRequestBySslStoreId(currentResponseItem?.TheSslStoreOrderId);
                         var orderStatusResponse = await client.SubmitOrderStatusRequestAsync(orderStatusRequest);
 
-                        var customOrderId = orderStatusResponse.CustomOrderId;
-                        if (string.IsNullOrEmpty(customOrderId))
+                        var theSslStoreOrderId = orderStatusResponse.TheSslStoreOrderId;
+                        var partnerOrderId = orderStatusResponse.PartnerOrderId;
+                        if (string.IsNullOrEmpty(theSslStoreOrderId) || string.IsNullOrEmpty(partnerOrderId))
                         {
-                            _logger.LogTrace($"Order {currentResponseItem?.TheSslStoreOrderId} has no CustomOrderId, skipping");
+                            _logger.LogTrace($"Order {currentResponseItem?.TheSslStoreOrderId} missing required IDs, skipping");
                             continue;
                         }
 
+                        var compositeId = BuildCompositeRequestId(theSslStoreOrderId, partnerOrderId);
                         var fileContent = "";
                         var certStatus = _requestManager.MapReturnStatus(orderStatusResponse.OrderStatus.MajorStatus);
 
                         if (certStatus == (int)EndEntityStatus.GENERATED)
                         {
-                            var downloadCertificateRequest = _requestManager.GetCertificateRequest(customOrderId);
+                            var downloadCertificateRequest = _requestManager.GetCertificateRequestBySslStoreId(theSslStoreOrderId);
                             var certResponse = await client.SubmitDownloadCertificateAsync(downloadCertificateRequest);
                             if (!certResponse.AuthResponse.IsError)
                             {
@@ -400,13 +463,13 @@ namespace Keyfactor.AnyGateway.SslStore
                                 fileContent = Convert.ToBase64String(endEntityCert.RawData);
                             }
                         }
-                        
+
                         if ((certStatus == (int)EndEntityStatus.GENERATED && fileContent.Length > 0) ||
                             certStatus == (int)EndEntityStatus.REVOKED)
                         {
                             blockingBuffer.Add(new AnyCAPluginCertificate
                             {
-                                CARequestID = customOrderId,
+                                CARequestID = compositeId,
                                 Certificate = fileContent,
                                 Status = certStatus,
                                 ProductID = $"{orderStatusResponse.ProductCode}"

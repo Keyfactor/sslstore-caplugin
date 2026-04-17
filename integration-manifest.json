@@ -7,8 +7,8 @@
     "status": "production",
     "integration_type": "anyca-plugin",
     "support_level": "kf-supported",
-    "link_github": true,
-    "update_catalog": true,
+    "link_github": false,
+    "update_catalog": false,
     "gateway_framework": "25.5",
     "about": {
         "carest": {
