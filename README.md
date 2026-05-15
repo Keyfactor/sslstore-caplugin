@@ -5,16 +5,16 @@
 <p align="center">
   <!-- Badges -->
 <img src="https://img.shields.io/badge/integration_status-production-3D1973?style=flat-square" alt="Integration Status: production" />
-<a href="https://github.com/Keyfactor/sslstore-caplugin/releases"><img src="https://img.shields.io/github/v/release/Keyfactor/sslstore-caplugin?style=flat-square" alt="Release" /></a>
-<img src="https://img.shields.io/github/issues/Keyfactor/sslstore-caplugin?style=flat-square" alt="Issues" />
-<img src="https://img.shields.io/github/downloads/Keyfactor/sslstore-caplugin/total?style=flat-square&label=downloads&color=28B905" alt="GitHub Downloads (all assets, all releases)" />
+<a href="https://github.com/Keyfactor/SSL Store AnyCA REST plugin/releases"><img src="https://img.shields.io/github/v/release/Keyfactor/SSL Store AnyCA REST plugin?style=flat-square" alt="Release" /></a>
+<img src="https://img.shields.io/github/issues/Keyfactor/SSL Store AnyCA REST plugin?style=flat-square" alt="Issues" />
+<img src="https://img.shields.io/github/downloads/Keyfactor/SSL Store AnyCA REST plugin/total?style=flat-square&label=downloads&color=28B905" alt="GitHub Downloads (all assets, all releases)" />
 </p>
 
 <p align="center">
   <!-- TOC -->
   <a href="#support">
     <b>Support</b>
-  </a> 
+  </a>
   ·
   <a href="#requirements">
     <b>Requirements</b>
@@ -32,7 +32,6 @@
     <b>Related Integrations</b>
   </a>
 </p>
-
 
 The SSL Store AnyCA Gateway REST plugin extends the capabilities of the SSL Store Certificate Authority Service to Keyfactor Command via the Keyfactor AnyCA Gateway. SSL Store is a certificate reseller providing access to 80+ certificate products from vendors including DigiCert, Sectigo, RapidSSL, GeoTrust, and Comodo through a single REST API. The plugin represents a fully featured AnyCA Plugin with the following capabilities:
 
@@ -56,7 +55,7 @@ The SSL Store AnyCA Gateway REST plugin extends the capabilities of the SSL Stor
 The SSL Store AnyCA Gateway REST plugin is compatible with the Keyfactor AnyCA Gateway REST 25.5 and later.
 
 ## Support
-The SSL Store AnyCA Gateway REST plugin is supported by Keyfactor for Keyfactor customers. If you have a support issue, please open a support ticket with your Keyfactor representative. If you have a support issue, please open a support ticket via the Keyfactor Support Portal at https://support.keyfactor.com. 
+The SSL Store AnyCA Gateway REST plugin is supported by Keyfactor for Keyfactor customers. If you have a support issue, please open a support ticket via the Keyfactor Support Portal at https://support.keyfactor.com.
 
 > To report a problem or suggest a new feature, use the **[Issues](../../issues)** tab. If you want to contribute actual bug fixes or proposed enhancements, use the **[Pull requests](../../pulls)** tab.
 
@@ -238,7 +237,7 @@ The plugin uses a configurable **Renewal Window** (default: 30 days) to determin
 
 1. Install the AnyCA Gateway REST per the [official Keyfactor documentation](https://software.keyfactor.com/Guides/AnyCAGatewayREST/Content/AnyCAGatewayREST/InstallIntroduction.htm).
 
-2. On the server hosting the AnyCA Gateway REST, download and unzip the latest [SSL Store AnyCA Gateway REST plugin](https://github.com/Keyfactor/sslstore-caplugin/releases/latest) from GitHub.
+2. On the server hosting the AnyCA Gateway REST, download and unzip the latest [SSL Store AnyCA Gateway REST plugin](https://github.com/Keyfactor/SSL Store AnyCA REST plugin/releases/latest) from GitHub.
 
 3. Copy the unzipped directory (usually called `net6.0` or `net8.0`) to the Extensions directory:
 
@@ -262,9 +261,9 @@ The plugin uses a configurable **Renewal Window** (default: 30 days) to determin
     * **Gateway Registration**
 
         ### CA Connection Configuration
-
+        
         When registering the SSL Store CA in the AnyCA Gateway, you'll need to provide the following configuration parameters:
-
+        
         | Parameter | Description | Required | Default |
         |-----------|-------------|----------|---------|
         | **SSLStoreURL** | Full URL to the SSL Store API endpoint | Yes | `https://sandbox-wbapi.thesslstore.com` |
@@ -273,9 +272,9 @@ The plugin uses a configurable **Renewal Window** (default: 30 days) to determin
         | **PageSize** | Number of records per page during synchronization | No | `100` |
         | **Enabled** | Flag to Enable or Disable the CA connector | No | `true` |
         | **RenewalWindow** | Days before order expiry to trigger renewal vs. reissue | No | `30` |
-
+        
         ### Gateway Registration Notes
-
+        
         - Each defined Certificate Authority in the AnyCA Gateway REST can support one SSL Store API endpoint
         - If you have multiple SSL Store environments (production/sandbox), define separate Certificate Authorities for each
         - Each CA configuration will manifest in Command as a separate CA entry
@@ -285,20 +284,20 @@ The plugin uses a configurable **Renewal Window** (default: 30 days) to determin
           - Certificate status mapping (Active, Pending, Cancelled)
           - End-entity certificate extraction from certificate chains
           - Paginated order synchronization with retry logic
-
+        
         ### Security Considerations
-
+        
         1. **Credential Storage**: The AuthToken field is configured as a secret/hidden field and should be stored securely
         2. **Network Security**: Ensure TLS/SSL is properly configured for all API communications
         3. **Least Privilege**: Request API credentials with minimal required permissions
         4. **Audit Logging**: Enable comprehensive logging in both the Gateway and SSL Store for security monitoring
         5. **Credential Rotation**: Regularly rotate API credentials according to your security policy
         6. **Sandbox Testing**: Use the sandbox endpoint (`https://sandbox-wbapi.thesslstore.com`) for initial configuration and testing before switching to production
-
+        
         ### CA Connection Fields
-
+        
         Populate using the configuration fields collected in the [requirements](#requirements) section.
-
+        
         * **SSLStoreURL** - The base URL for the SSL Store API endpoint. Use `https://wbapi.thesslstore.com` for production or `https://sandbox-wbapi.thesslstore.com` for testing.
         * **PartnerCode** - The Partner Code obtained from your SSL Store partner account.
         * **AuthToken** - The Authentication Token obtained from your SSL Store partner account.
@@ -310,157 +309,155 @@ The plugin uses a configurable **Renewal Window** (default: 30 days) to determin
 
         Populate using the configuration fields collected in the [requirements](#requirements) section.
 
-        * **SSLStoreURL** - The Base URL for the SSL Store API endpoint (e.g. https://sandbox-wbapi.thesslstore.com). 
-        * **PartnerCode** - The Partner Code obtained from SSL Store. 
-        * **AuthToken** - The Authentication Token obtained from SSL Store. 
-        * **PageSize** - The number of records to return per page during synchronization. 
-        * **Enabled** - Flag to Enable or Disable the CA connector. 
-        * **RenewalWindow** - Number of days before order expiry to trigger a renewal instead of a reissue. 
+        * **SSLStoreURL** - The Base URL for the SSL Store API endpoint (e.g. https://sandbox-wbapi.thesslstore.com).
+        * **PartnerCode** - The Partner Code obtained from SSL Store.
+        * **AuthToken** - The Authentication Token obtained from SSL Store.
+        * **PageSize** - The number of records to return per page during synchronization.
+        * **Enabled** - Flag to Enable or Disable the CA connector.
+        * **RenewalWindow** - Number of days before order expiry to trigger a renewal instead of a reissue.
 
 2. ### Template (Product) Configuration
 
-    After adding the CA to the Gateway, certificate templates are automatically discovered from the plugin's built-in product registry. Each template may require different enrollment fields depending on the product type and validation level.
+After adding the CA to the Gateway, certificate templates are automatically discovered from the plugin's built-in product registry. Each template may require different enrollment fields depending on the product type and validation level.
 
-    **Enrollment fields vary by product type. The following categories exist:**
+**Enrollment fields vary by product type. The following categories exist:**
 
-    #### DV Products (Minimal Fields)
+#### DV Products (Minimal Fields)
 
-    Products like `positivessl`, `sectigossl`, `sectigowildcard`:
+Products like `positivessl`, `sectigossl`, `sectigowildcard`:
 
-    | Parameter | Description | Required |
-    |-----------|-------------|----------|
-    | **Admin Contact - Email** | Administrative contact email | Yes |
-    | **Approver Email** | Domain validation approver email | Yes |
-    | **Validity Period (In Days)** | Certificate validity in days | Yes |
+| Parameter | Description | Required |
+|-----------|-------------|----------|
+| **Admin Contact - Email** | Administrative contact email | Yes |
+| **Approver Email** | Domain validation approver email | Yes |
+| **Validity Period (In Days)** | Certificate validity in days | Yes |
 
-    #### OV Products (Organization Fields)
+#### OV Products (Organization Fields)
 
-    Products like `sectigoovssl`, `comodopremiumssl`, `instantssl`:
+Products like `sectigoovssl`, `comodopremiumssl`, `instantssl`:
 
-    | Parameter | Description | Required |
-    |-----------|-------------|----------|
-    | **Admin Contact - Email** | Administrative contact email | Yes |
-    | **Approver Email** | Domain validation approver email | Yes |
-    | **Validity Period (In Days)** | Certificate validity in days | Yes |
-    | **Organization Name** | Organization name | Yes |
-    | **Organization Address** | Organization street address | Yes |
-    | **Organization State/Province** | Organization state or province | Yes |
-    | **Organization Postal Code** | Organization postal/zip code | Yes |
-    | **Organization Country** | Two-letter country code (e.g. US) | Yes |
-    | **Organization Phone** | Organization phone number | Yes |
+| Parameter | Description | Required |
+|-----------|-------------|----------|
+| **Admin Contact - Email** | Administrative contact email | Yes |
+| **Approver Email** | Domain validation approver email | Yes |
+| **Validity Period (In Days)** | Certificate validity in days | Yes |
+| **Organization Name** | Organization name | Yes |
+| **Organization Address** | Organization street address | Yes |
+| **Organization State/Province** | Organization state or province | Yes |
+| **Organization Postal Code** | Organization postal/zip code | Yes |
+| **Organization Country** | Two-letter country code (e.g. US) | Yes |
+| **Organization Phone** | Organization phone number | Yes |
 
-    #### DigiCert OV Flex Products
+#### DigiCert OV Flex Products
 
-    Products like `digi_securesite_flex`, `digi_sslwebserver_flex`, `digi_truebizid_flex`:
+Products like `digi_securesite_flex`, `digi_sslwebserver_flex`, `digi_truebizid_flex`:
 
-    | Parameter | Description | Required |
-    |-----------|-------------|----------|
-    | **Admin Contact - First Name** | Administrative contact first name | Yes |
-    | **Admin Contact - Last Name** | Administrative contact last name | Yes |
-    | **Admin Contact - Phone** | Administrative contact phone | Yes |
-    | **Admin Contact - Email** | Administrative contact email | Yes |
-    | **Approver Email** | Domain validation approver email | Yes |
-    | **Validity Period (In Days)** | Certificate validity in days | Yes |
-    | **Organization Name** | Organization name | Yes |
-    | **Organization Address** | Organization street address | Yes |
-    | **Organization City** | Organization city | Yes |
-    | **Organization State/Province** | Organization state or province | Yes |
-    | **Organization Postal Code** | Organization postal/zip code | Yes |
-    | **Organization Country** | Two-letter country code | Yes |
-    | **Organization Phone** | Organization phone number | Yes |
+| Parameter | Description | Required |
+|-----------|-------------|----------|
+| **Admin Contact - First Name** | Administrative contact first name | Yes |
+| **Admin Contact - Last Name** | Administrative contact last name | Yes |
+| **Admin Contact - Phone** | Administrative contact phone | Yes |
+| **Admin Contact - Email** | Administrative contact email | Yes |
+| **Approver Email** | Domain validation approver email | Yes |
+| **Validity Period (In Days)** | Certificate validity in days | Yes |
+| **Organization Name** | Organization name | Yes |
+| **Organization Address** | Organization street address | Yes |
+| **Organization City** | Organization city | Yes |
+| **Organization State/Province** | Organization state or province | Yes |
+| **Organization Postal Code** | Organization postal/zip code | Yes |
+| **Organization Country** | Two-letter country code | Yes |
+| **Organization Phone** | Organization phone number | Yes |
 
-    #### DigiCert EV Flex Products
+#### DigiCert EV Flex Products
 
-    Products like `digi_securesite_ev_flex`, `digi_ssl_ev_basic`, `digi_truebizid_ev_flex`:
+Products like `digi_securesite_ev_flex`, `digi_ssl_ev_basic`, `digi_truebizid_ev_flex`:
 
-    Same as DigiCert OV Flex, plus:
+Same as DigiCert OV Flex, plus:
 
-    | Parameter | Description | Required |
-    |-----------|-------------|----------|
-    | **Admin Contact - Title** | Administrative contact job title | Yes |
+| Parameter | Description | Required |
+|-----------|-------------|----------|
+| **Admin Contact - Title** | Administrative contact job title | Yes |
 
-    #### Enterprise Organization (-EO) Products
+#### Enterprise Organization (-EO) Products
 
-    Products like `digi_securesite_flex-EO`, `digi_sslwebserver_ev_flex-EO`:
+Products like `digi_securesite_flex-EO`, `digi_sslwebserver_ev_flex-EO`:
 
-    | Parameter | Description | Required |
-    |-----------|-------------|----------|
-    | **Validity Period (In Days)** | Certificate validity in days | Yes |
-    | **Organization ID** | DigiCert Organization ID | Yes |
+| Parameter | Description | Required |
+|-----------|-------------|----------|
+| **Validity Period (In Days)** | Certificate validity in days | Yes |
+| **Organization ID** | DigiCert Organization ID | Yes |
 
-    #### EV Products with Jurisdiction
+#### EV Products with Jurisdiction
 
-    Products like `enterpriseproev`, `positiveevssl`, `positiveevmdc`:
+Products like `enterpriseproev`, `positiveevssl`, `positiveevmdc`:
 
-    Same as OV Products, plus:
+Same as OV Products, plus:
 
-    | Parameter | Description | Required |
-    |-----------|-------------|----------|
-    | **Organization Jurisdiction Country** | Jurisdiction country code for EV validation | Yes |
+| Parameter | Description | Required |
+|-----------|-------------|----------|
+| **Organization Jurisdiction Country** | Jurisdiction country code for EV validation | Yes |
 
-    ### Domain Validation - Approver Emails
+### Domain Validation - Approver Emails
 
-    The plugin validates approver emails against SSL Store's approved list for each domain before enrollment:
+The plugin validates approver emails against SSL Store's approved list for each domain before enrollment:
 
-    - **DigiCert products**: Exactly one approver email is required and must be from the approved list
-    - **Sectigo/Comodo products**: At least one approver email must be from the approved list
-    - Emails are validated per-domain for multi-domain certificates
+- **DigiCert products**: Exactly one approver email is required and must be from the approved list
+- **Sectigo/Comodo products**: At least one approver email must be from the approved list
+- Emails are validated per-domain for multi-domain certificates
 
-    ### Important Notes
+### Important Notes
 
-    - Product IDs are automatically registered from the plugin's built-in product registry
-    - The `Validity Period (In Days)` is automatically converted to months for the SSL Store API
-    - For `-EO` (Enterprise Organization) products, the Organization ID dropdown is populated from your DigiCert account's active organizations
-    - DNS names (SANs) are extracted from the Keyfactor enrollment request; they do not need to be provided as a separate enrollment field
-    - The Common Name (CN) is extracted from the CSR subject
+- Product IDs are automatically registered from the plugin's built-in product registry
+- The `Validity Period (In Days)` is automatically converted to months for the SSL Store API
+- For `-EO` (Enterprise Organization) products, the Organization ID dropdown is populated from your DigiCert account's active organizations
+- DNS names (SANs) are extracted from the Keyfactor enrollment request; they do not need to be provided as a separate enrollment field
+- The Common Name (CN) is extracted from the CSR subject
 
 3. Follow the [official Keyfactor documentation](https://software.keyfactor.com/Guides/AnyCAGatewayREST/Content/AnyCAGatewayREST/AddCA-Keyfactor.htm) to add each defined Certificate Authority to Keyfactor Command and import the newly defined Certificate Templates.
 
 4. In Keyfactor Command (v12.3+), for each imported Certificate Template, follow the [official documentation](https://software.keyfactor.com/Core-OnPrem/Current/Content/ReferenceGuide/Configuring%20Template%20Options.htm) to define enrollment fields for each of the following parameters:
 
-    * **Approver Email** - Comma-separated approver email address(es) for domain validation. 
-    * **Validity Period (In Days)** - Certificate validity period in days (e.g. 90, 365, 730). 
-    * **Admin Contact - First Name** - Administrative contact first name. 
-    * **Admin Contact - Last Name** - Administrative contact last name. 
-    * **Admin Contact - Phone** - Administrative contact phone number. 
-    * **Admin Contact - Email** - Administrative contact email address. 
-    * **Admin Contact - Title** - Administrative contact job title. 
-    * **Admin Contact - Organization Name** - Administrative contact organization name. 
-    * **Admin Contact - Address** - Administrative contact street address. 
-    * **Admin Contact - City** - Administrative contact city. 
-    * **Admin Contact - Region** - Administrative contact state/province/region. 
-    * **Admin Contact - Postal Code** - Administrative contact postal/zip code. 
-    * **Admin Contact - Country** - Administrative contact two-letter country code (e.g. US). 
-    * **Technical Contact - First Name** - Technical contact first name. 
-    * **Technical Contact - Last Name** - Technical contact last name. 
-    * **Technical Contact - Phone** - Technical contact phone number. 
-    * **Technical Contact - Email** - Technical contact email address. 
-    * **Technical Contact - Organization Name** - Technical contact organization name. 
-    * **Technical Contact - Address** - Technical contact street address. 
-    * **Technical Contact - City** - Technical contact city. 
-    * **Technical Contact - Region** - Technical contact state/province/region. 
-    * **Technical Contact - Postal Code** - Technical contact postal/zip code. 
-    * **Technical Contact - Country** - Technical contact two-letter country code (e.g. US). 
-    * **Organization Name** - Organization name for the certificate. 
-    * **Organization Address** - Organization street address. 
-    * **Organization City** - Organization city. 
-    * **Organization Region** - Organization state/province/region. 
-    * **Organization State/Province** - Organization state or province. 
-    * **Organization Postal Code** - Organization postal/zip code. 
-    * **Organization Country** - Organization two-letter country code (e.g. US). 
-    * **Organization Phone** - Organization phone number. 
-    * **Organization Jurisdiction Country** - Jurisdiction country code for EV certificates. 
-    * **Organization ID** - DigiCert organization ID for EO (Enterprise Organization) products. 
-    * **Server Count** - Number of server licenses for the certificate. 
-    * **Web Server Type** - Web server type (e.g. apacheopenssl, iis, tomcat, Other). 
-    * **Signature Hash Algorithm** - Signature hash algorithm (PREFER_SHA2, REQUIRE_SHA2, PREFER_SHA1). 
-    * **File Auth Domain Validation** - Use file-based domain validation (True/False). 
-    * **CName Auth Domain Validation** - Use CNAME-based domain validation (True/False). 
-    * **Is CU Order?** - Is this a CU (Customer) order (True/False). 
-    * **Is Renewal Order?** - Is this a renewal order (True/False). 
-    * **Is Trial Order?** - Is this a trial order (True/False). 
-
-
+    * **Approver Email** - Comma-separated approver email address(es) for domain validation.
+    * **Validity Period (In Days)** - Certificate validity period in days (e.g. 90, 365, 730).
+    * **Admin Contact - First Name** - Administrative contact first name.
+    * **Admin Contact - Last Name** - Administrative contact last name.
+    * **Admin Contact - Phone** - Administrative contact phone number.
+    * **Admin Contact - Email** - Administrative contact email address.
+    * **Admin Contact - Title** - Administrative contact job title.
+    * **Admin Contact - Organization Name** - Administrative contact organization name.
+    * **Admin Contact - Address** - Administrative contact street address.
+    * **Admin Contact - City** - Administrative contact city.
+    * **Admin Contact - Region** - Administrative contact state/province/region.
+    * **Admin Contact - Postal Code** - Administrative contact postal/zip code.
+    * **Admin Contact - Country** - Administrative contact two-letter country code (e.g. US).
+    * **Technical Contact - First Name** - Technical contact first name.
+    * **Technical Contact - Last Name** - Technical contact last name.
+    * **Technical Contact - Phone** - Technical contact phone number.
+    * **Technical Contact - Email** - Technical contact email address.
+    * **Technical Contact - Organization Name** - Technical contact organization name.
+    * **Technical Contact - Address** - Technical contact street address.
+    * **Technical Contact - City** - Technical contact city.
+    * **Technical Contact - Region** - Technical contact state/province/region.
+    * **Technical Contact - Postal Code** - Technical contact postal/zip code.
+    * **Technical Contact - Country** - Technical contact two-letter country code (e.g. US).
+    * **Organization Name** - Organization name for the certificate.
+    * **Organization Address** - Organization street address.
+    * **Organization City** - Organization city.
+    * **Organization Region** - Organization state/province/region.
+    * **Organization State/Province** - Organization state or province.
+    * **Organization Postal Code** - Organization postal/zip code.
+    * **Organization Country** - Organization two-letter country code (e.g. US).
+    * **Organization Phone** - Organization phone number.
+    * **Organization Jurisdiction Country** - Jurisdiction country code for EV certificates.
+    * **Organization ID** - DigiCert organization ID for EO (Enterprise Organization) products.
+    * **Server Count** - Number of server licenses for the certificate.
+    * **Web Server Type** - Web server type (e.g. apacheopenssl, iis, tomcat, Other).
+    * **Signature Hash Algorithm** - Signature hash algorithm (PREFER_SHA2, REQUIRE_SHA2, PREFER_SHA1).
+    * **File Auth Domain Validation** - Use file-based domain validation (True/False).
+    * **CName Auth Domain Validation** - Use CNAME-based domain validation (True/False).
+    * **Is CU Order?** - Is this a CU (Customer) order (True/False).
+    * **Is Renewal Order?** - Is this a renewal order (True/False).
+    * **Is Trial Order?** - Is this a trial order (True/False).
 
 ## License
 
