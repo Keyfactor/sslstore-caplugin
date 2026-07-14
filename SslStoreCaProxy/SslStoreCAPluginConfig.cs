@@ -15,6 +15,9 @@ namespace Keyfactor.AnyGateway.SslStore
             public static string PageSize = "PageSize";
             public static string Enabled = "Enabled";
             public static string RenewalWindow = "RenewalWindow";
+            public static string DnsValidationEnabled = "DnsValidationEnabled";
+            public static string DnsValidationType = "DnsValidationType";
+            public static string DnsVerificationServer = "DnsVerificationServer";
         }
 
         public class Config
@@ -25,6 +28,9 @@ namespace Keyfactor.AnyGateway.SslStore
             public int PageSize { get; set; } = DefaultPageSize;
             public bool Enabled { get; set; }
             public int RenewalWindow { get; set; } = 30;
+            public bool DnsValidationEnabled { get; set; }
+            public string DnsValidationType { get; set; } = "dns-01";
+            public string DnsVerificationServer { get; set; }
         }
 
         public static Dictionary<string, PropertyConfigInfo> GetPluginAnnotations()
@@ -72,6 +78,33 @@ namespace Keyfactor.AnyGateway.SslStore
                     Hidden = false,
                     DefaultValue = 30,
                     Type = "Number"
+                },
+                [ConfigConstants.DnsValidationEnabled] = new PropertyConfigInfo()
+                {
+                    Comments = "Enable automated DNS (CNAME) domain control validation. When enabled, the plugin " +
+                               "requests CNAME-based validation from SSL Store and publishes the returned record via the " +
+                               "DNS provider plugin resolved by the AnyCA Gateway. Requires a DNS provider plugin (e.g. Azure, " +
+                               "Route53, Cloudflare) to be deployed and configured on the gateway. When disabled, email approver validation is used.",
+                    Hidden = false,
+                    DefaultValue = false,
+                    Type = "Bool"
+                },
+                [ConfigConstants.DnsValidationType] = new PropertyConfigInfo()
+                {
+                    Comments = "The validation type passed to the DNS provider plugin framework when resolving a domain " +
+                               "validator. Must match the validation type advertised by your deployed DNS provider plugin " +
+                               "(GetValidationType). Defaults to 'dns-01'.",
+                    Hidden = false,
+                    DefaultValue = "dns-01",
+                    Type = "String"
+                },
+                [ConfigConstants.DnsVerificationServer] = new PropertyConfigInfo()
+                {
+                    Comments = "Optional. IP address of an authoritative/internal DNS server to use when verifying record " +
+                               "propagation. Leave empty to verify against public DNS resolvers (Google, Cloudflare, OpenDNS, Quad9).",
+                    Hidden = false,
+                    DefaultValue = "",
+                    Type = "String"
                 }
             };
         }
