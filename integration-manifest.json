@@ -7,9 +7,9 @@
     "status": "production",
     "integration_type": "anyca-plugin",
     "support_level": "kf-supported",
-    "link_github": true,
-    "update_catalog": true,
-    "gateway_framework": "25.5",
+    "link_github": false,
+    "update_catalog": false,
+    "gateway_framework": "26.2",
     "about": {
         "carest": {
             "ca_plugin_config": [
@@ -36,6 +36,18 @@
                 {
                     "name": "RenewalWindow",
                     "description": "Number of days before order expiry to trigger a renewal instead of a reissue."
+                },
+                {
+                    "name": "DnsValidationEnabled",
+                    "description": "Enable automated DNS (CNAME) domain control validation. When enabled, the plugin requests CNAME-based validation from SSL Store and publishes the returned record via the DNS provider plugin resolved by the AnyCA Gateway. Requires a DNS provider plugin (e.g. Azure, Route53, Cloudflare) to be deployed and configured on the gateway. When disabled, email approver validation is used."
+                },
+                {
+                    "name": "DnsValidationType",
+                    "description": "The validation type passed to the DNS provider plugin framework when resolving a domain validator. Must match the validation type advertised by your deployed DNS provider plugin (GetValidationType). Defaults to 'dns-01'."
+                },
+                {
+                    "name": "DnsVerificationServer",
+                    "description": "Optional. IP address of an authoritative/internal DNS server to use when verifying record propagation. Leave empty to verify against public DNS resolvers (Google, Cloudflare, OpenDNS, Quad9)."
                 }
             ],
             "enrollment_config": [
