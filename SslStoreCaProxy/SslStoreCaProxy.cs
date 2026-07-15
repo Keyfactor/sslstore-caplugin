@@ -15,6 +15,8 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System.Linq;
 using Keyfactor.PKI.X509;
+using Keyfactor.AnyGateway.SslStore.Clients.DNS;
+using DnsClient;
 
 
 namespace Keyfactor.AnyGateway.SslStore
@@ -26,11 +28,22 @@ namespace Keyfactor.AnyGateway.SslStore
         private IAnyCAPluginConfigProvider Config { get; set; }
         private ICertificateDataReader _certDataReader;
         private SslStoreCAPluginConfig.Config _config;
+        private readonly IDomainValidatorFactory _validatorFactory;
 
         public string PartnerCode { get; set; }
         public string AuthenticationToken { get; set; }
         public int PageSize { get; set; }
         public int RenewalWindow { get; set; }
+
+        /// <summary>
+        /// Constructor. The AnyCA Gateway platform injects an <see cref="IDomainValidatorFactory"/>
+        /// used to resolve DNS provider plugins for automated (CNAME) domain control validation.
+        /// The factory is only required when DNS validation is enabled in the CA configuration.
+        /// </summary>
+        public SslStoreCaProxy(IDomainValidatorFactory validatorFactory)
+        {
+            _validatorFactory = validatorFactory;
+        }
 
         public void Initialize(IAnyCAPluginConfigProvider configProvider, ICertificateDataReader certificateDataReader)
         {
@@ -191,46 +204,65 @@ namespace Keyfactor.AnyGateway.SslStore
                         var dnsNames = san != null && san.ContainsKey("dns") ? san["dns"] : Array.Empty<string>();
                         _logger.LogTrace($"DNS Names from SAN: {string.Join(",", dnsNames)}");
 
-                        string[] arrayApproverEmails = Array.Empty<string>();
-                        if (productInfo.ProductParameters.ContainsKey("Approver Email"))
+                        var useDnsValidation = ResolveUseDnsValidation(productInfo);
+                        _logger.LogTrace($"DNS domain control validation enabled: {useDnsValidation}");
+
+                        if (!useDnsValidation)
                         {
-                            _logger.LogTrace($"Approver Email {productInfo.ProductParameters["Approver Email"]}");
-                            arrayApproverEmails = productInfo.ProductParameters["Approver Email"].Split(new char[] { ',' });
-                        }
-
-                        // Validate approver emails against all domains (CN + SANs)
-                        var allDomains = new List<string>();
-                        if (!string.IsNullOrEmpty(domainName)) allDomains.Add(domainName);
-                        allDomains.AddRange(dnsNames.Where(d => !string.Equals(d, domainName, StringComparison.OrdinalIgnoreCase)));
-
-                        var count = 1;
-                        foreach (var domain in allDomains)
-                        {
-                            var emailApproverRequest = _requestManager.GetEmailApproverListRequest(productInfo.ProductID, domain);
-                            _logger.LogTrace($"Email Approver Request JSON {JsonConvert.SerializeObject(emailApproverRequest)}");
-
-                            var emailApproverResponse = await client.SubmitEmailApproverRequestAsync(emailApproverRequest);
-                            _logger.LogTrace($"Email Approver Response JSON {JsonConvert.SerializeObject(emailApproverResponse)}");
-
-                            var emailValidation = ValidateEmails(emailApproverResponse, arrayApproverEmails, productInfo, count);
-                            _logger.LogTrace($"Email Validation Result {emailValidation}");
-
-                            if (emailValidation.Length > 0)
+                            string[] arrayApproverEmails = Array.Empty<string>();
+                            if (productInfo.ProductParameters.ContainsKey("Approver Email"))
                             {
-                                return new EnrollmentResult
-                                {
-                                    Status = (int)EndEntityStatus.FAILED,
-                                    StatusMessage = emailValidation
-                                };
+                                _logger.LogTrace($"Approver Email {productInfo.ProductParameters["Approver Email"]}");
+                                arrayApproverEmails = productInfo.ProductParameters["Approver Email"].Split(new char[] { ',' });
                             }
-                            count++;
+
+                            // Validate approver emails against all domains (CN + SANs)
+                            var allDomains = new List<string>();
+                            if (!string.IsNullOrEmpty(domainName)) allDomains.Add(domainName);
+                            allDomains.AddRange(dnsNames.Where(d => !string.Equals(d, domainName, StringComparison.OrdinalIgnoreCase)));
+
+                            var count = 1;
+                            foreach (var domain in allDomains)
+                            {
+                                var emailApproverRequest = _requestManager.GetEmailApproverListRequest(productInfo.ProductID, domain);
+                                _logger.LogTrace($"Email Approver Request JSON {JsonConvert.SerializeObject(emailApproverRequest)}");
+
+                                var emailApproverResponse = await client.SubmitEmailApproverRequestAsync(emailApproverRequest);
+                                _logger.LogTrace($"Email Approver Response JSON {JsonConvert.SerializeObject(emailApproverResponse)}");
+
+                                var emailValidation = ValidateEmails(emailApproverResponse, arrayApproverEmails, productInfo, count);
+                                _logger.LogTrace($"Email Validation Result {emailValidation}");
+
+                                if (emailValidation.Length > 0)
+                                {
+                                    return new EnrollmentResult
+                                    {
+                                        Status = (int)EndEntityStatus.FAILED,
+                                        StatusMessage = emailValidation
+                                    };
+                                }
+                                count++;
+                            }
                         }
 
-                        var enrollmentRequest = _requestManager.GetEnrollmentRequest(csr, subject, san, productInfo, Config, false);
+                        var enrollmentRequest = _requestManager.GetEnrollmentRequest(csr, subject, san, productInfo, Config, false, useDnsValidation);
                         _logger.LogTrace($"enrollmentRequest JSON {JsonConvert.SerializeObject(enrollmentRequest)}");
 
                         enrollmentResponse = await client.SubmitNewOrderRequestAsync(enrollmentRequest);
                         _logger.LogTrace($"enrollmentResponse JSON {JsonConvert.SerializeObject(enrollmentResponse)}");
+
+                        if (useDnsValidation && enrollmentResponse != null && !(enrollmentResponse.AuthResponse?.IsError ?? false))
+                        {
+                            var dnsError = await StageDnsValidationAsync(enrollmentResponse, domainName);
+                            if (!string.IsNullOrEmpty(dnsError))
+                            {
+                                return new EnrollmentResult
+                                {
+                                    Status = (int)EndEntityStatus.FAILED,
+                                    StatusMessage = dnsError
+                                };
+                            }
+                        }
                     }
                     else
                     {
@@ -402,6 +434,9 @@ namespace Keyfactor.AnyGateway.SslStore
                     var endEntityCert = X509Utilities.ExtractEndEntityCertificateContents(fullChain, null);
                     certificate = Convert.ToBase64String(endEntityCert.RawData);
                 }
+
+                // Order is issued - best-effort cleanup of any DNS validation records we published.
+                await CleanupDnsValidationAsync(orderStatusResponse);
             }
 
             _logger.MethodExit();
@@ -462,6 +497,9 @@ namespace Keyfactor.AnyGateway.SslStore
                                 var endEntityCert = X509Utilities.ExtractEndEntityCertificateContents(fullChain, null);
                                 fileContent = Convert.ToBase64String(endEntityCert.RawData);
                             }
+
+                            // Order is issued - best-effort cleanup of any DNS validation records we published.
+                            await CleanupDnsValidationAsync(orderStatusResponse);
                         }
 
                         if ((certStatus == (int)EndEntityStatus.GENERATED && fileContent.Length > 0) ||
@@ -516,6 +554,149 @@ namespace Keyfactor.AnyGateway.SslStore
             }
 
             return "";
+        }
+
+        /// <summary>
+        /// Determines whether automated DNS (CNAME) domain control validation should be used for
+        /// this enrollment. Enabled by the CA-connection <c>DnsValidationEnabled</c> flag, or
+        /// per-template via the "CName Auth Domain Validation" parameter.
+        /// </summary>
+        private bool ResolveUseDnsValidation(EnrollmentProductInfo productInfo)
+        {
+            if (_config.DnsValidationEnabled) return true;
+
+            if (productInfo?.ProductParameters != null &&
+                productInfo.ProductParameters.TryGetValue("CName Auth Domain Validation", out var flag))
+            {
+                return string.Equals(flag, "True", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Publishes the CNAME validation record(s) SSL Store returned for the order using the DNS
+        /// provider plugin resolved by the AnyCA Gateway, then verifies public DNS propagation.
+        /// Returns an empty string on success or an error message on failure. Propagation is
+        /// best-effort: SSL Store polls DNS on its own schedule, so a not-yet-propagated record is
+        /// logged as a warning rather than failing the enrollment.
+        /// </summary>
+        private async Task<string> StageDnsValidationAsync(INewOrderResponse response, string cnDomain)
+        {
+            if (_validatorFactory == null)
+            {
+                return "DNS domain control validation is enabled but the AnyCA Gateway did not provide an " +
+                       "IDomainValidatorFactory. Ensure the gateway version supports DNS provider plugins.";
+            }
+
+            var records = CollectDnsRecords(response, cnDomain);
+            if (records.Count == 0)
+            {
+                _logger.LogWarning("DNS validation enabled but SSL Store returned no CNAME validation records to publish.");
+                return "";
+            }
+
+            var verifier = new DnsVerificationHelper(_config.DnsVerificationServer, _config.DnsPropagationMaxAttempts, _config.DnsPropagationDelaySeconds);
+
+            foreach (var (domain, recordName, recordValue) in records)
+            {
+                _logger.LogInformation($"Staging CNAME validation record for {domain}: {recordName} -> {recordValue}");
+
+                IDomainValidator validator;
+                try
+                {
+                    validator = _validatorFactory.ResolveDomainValidator(domain, _config.DnsValidationType);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Failed to resolve DNS provider plugin for '{domain}': {ex.Message}");
+                    return $"Failed to resolve DNS provider plugin for '{domain}' (validation type '{_config.DnsValidationType}'): {ex.Message}";
+                }
+
+                if (validator == null)
+                {
+                    return $"No DNS provider plugin resolved for '{domain}' (validation type '{_config.DnsValidationType}'). " +
+                           "Ensure a DNS provider plugin is deployed and configured for the zone that hosts this domain.";
+                }
+
+                var result = await validator.StageValidation(recordName, recordValue, CancellationToken.None);
+                if (result == null || !result.Success)
+                {
+                    var msg = result?.ErrorMessage ?? "unknown error";
+                    _logger.LogError($"Failed to publish DNS validation record {recordName} for '{domain}': {msg}");
+                    return $"Failed to publish DNS validation record for '{domain}': {msg}";
+                }
+
+                var propagated = await verifier.WaitForDnsPropagationAsync(recordName, recordValue, QueryType.CNAME, 3);
+                if (!propagated)
+                {
+                    _logger.LogWarning($"CNAME record {recordName} for '{domain}' was not yet confirmed across public resolvers. " +
+                                       "SSL Store will re-check on its own schedule.");
+                }
+            }
+
+            return "";
+        }
+
+        /// <summary>
+        /// Best-effort removal of the DNS validation record(s) once an order has been issued.
+        /// Called during GetSingleRecord/Synchronize when the order first reports Active. Any failure
+        /// is logged and swallowed so it never affects sync or record retrieval.
+        /// </summary>
+        private async Task CleanupDnsValidationAsync(INewOrderResponse response)
+        {
+            if (_validatorFactory == null || !_config.DnsValidationEnabled || response == null) return;
+
+            var records = CollectDnsRecords(response, response.CommonName ?? "");
+            foreach (var (domain, recordName, _) in records)
+            {
+                try
+                {
+                    var validator = _validatorFactory.ResolveDomainValidator(domain, _config.DnsValidationType);
+                    if (validator == null) continue;
+
+                    var result = await validator.CleanupValidation(recordName, CancellationToken.None);
+                    if (result != null && !result.Success)
+                        _logger.LogWarning($"Cleanup of DNS validation record {recordName} for '{domain}' reported failure: {result.ErrorMessage}");
+                    else
+                        _logger.LogTrace($"Cleaned up DNS validation record {recordName} for '{domain}'");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning($"Best-effort cleanup of DNS validation record {recordName} for '{domain}' failed: {ex.Message}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Collects the CNAME validation records SSL Store expects to be published for an order:
+        /// the order-level record (<c>CNAMEAuthName</c>/<c>CNAMEAuthValue</c>) plus any per-domain
+        /// records carried in the order's DomainAuthVettingStatus. De-duplicated by record name.
+        /// </summary>
+        private static List<(string domain, string recordName, string recordValue)> CollectDnsRecords(INewOrderResponse response, string cnDomain)
+        {
+            var records = new List<(string, string, string)>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            if (!string.IsNullOrEmpty(response?.CnameAuthName) && !string.IsNullOrEmpty(response.CnameAuthValue) &&
+                seen.Add(response.CnameAuthName))
+            {
+                records.Add((cnDomain, response.CnameAuthName, response.CnameAuthValue));
+            }
+
+            var vetting = response?.OrderStatus?.DomainAuthVettingStatus;
+            if (vetting != null)
+            {
+                foreach (var v in vetting)
+                {
+                    if (!string.IsNullOrEmpty(v.DnsName) && !string.IsNullOrEmpty(v.DnsEntry) && seen.Add(v.DnsName))
+                    {
+                        records.Add((string.IsNullOrEmpty(v.Domain) ? cnDomain : v.Domain, v.DnsName, v.DnsEntry));
+                    }
+                }
+            }
+
+            return records;
         }
     }
 }
