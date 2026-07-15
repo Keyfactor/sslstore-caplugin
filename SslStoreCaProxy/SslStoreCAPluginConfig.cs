@@ -16,7 +16,6 @@ namespace Keyfactor.AnyGateway.SslStore
             public static string Enabled = "Enabled";
             public static string RenewalWindow = "RenewalWindow";
             public static string DnsValidationEnabled = "DnsValidationEnabled";
-            public static string DnsValidationType = "DnsValidationType";
             public static string DnsVerificationServer = "DnsVerificationServer";
             public static string DnsPropagationMaxAttempts = "DnsPropagationMaxAttempts";
             public static string DnsPropagationDelaySeconds = "DnsPropagationDelaySeconds";
@@ -31,7 +30,6 @@ namespace Keyfactor.AnyGateway.SslStore
             public bool Enabled { get; set; }
             public int RenewalWindow { get; set; } = 30;
             public bool DnsValidationEnabled { get; set; }
-            public string DnsValidationType { get; set; } = "cname";
             public string DnsVerificationServer { get; set; }
             public int DnsPropagationMaxAttempts { get; set; } = 3;
             public int DnsPropagationDelaySeconds { get; set; } = 10;
@@ -92,17 +90,6 @@ namespace Keyfactor.AnyGateway.SslStore
                     Hidden = false,
                     DefaultValue = false,
                     Type = "Bool"
-                },
-                [ConfigConstants.DnsValidationType] = new PropertyConfigInfo()
-                {
-                    Comments = "The validation type passed to the DNS provider plugin framework when resolving a domain " +
-                               "validator. Must match the validation type advertised by your deployed DNS provider plugin " +
-                               "(GetValidationType). SSL Store domain control validation is CNAME-based, so this must resolve " +
-                               "a CNAME validator (e.g. Ns1CnameDomainValidator, CloudflareCnameDomainValidator) that publishes " +
-                               "a CNAME record. Defaults to 'cname'.",
-                    Hidden = false,
-                    DefaultValue = "cname",
-                    Type = "String"
                 },
                 [ConfigConstants.DnsVerificationServer] = new PropertyConfigInfo()
                 {

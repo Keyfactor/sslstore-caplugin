@@ -24,6 +24,15 @@ namespace Keyfactor.AnyGateway.SslStore
     public class SslStoreCaProxy : IAnyCAPlugin
     {
         private static readonly ILogger _logger = LogHandler.GetClassLogger<SslStoreCaProxy>();
+
+        /// <summary>
+        /// Validation type string passed to <see cref="IDomainValidatorFactory.ResolveDomainValidator"/>.
+        /// SSL Store domain control validation always publishes a CNAME record, so we resolve a DNS
+        /// provider that advertises the "cname" validation type (e.g. Ns1CnameDomainValidator). This is
+        /// intrinsic to the CA — it is not operator-configurable. Which validator actually handles a
+        /// given domain is chosen via the AnyCA Gateway's Domain Validation mapping, not here.
+        /// </summary>
+        private const string DnsValidationType = "cname";
         private RequestManager _requestManager;
         private IAnyCAPluginConfigProvider Config { get; set; }
         private ICertificateDataReader _certDataReader;
@@ -76,7 +85,7 @@ namespace Keyfactor.AnyGateway.SslStore
                 _logger.LogInformation(
                     "SslStore CAPlugin initialized. Enabled={Enabled}, SSLStoreURL={Url}, PartnerCode set={HasPartner}, AuthToken set={HasToken}, PageSize={PageSize}, RenewalWindow={RenewalWindow}, DnsValidationEnabled={DnsEnabled}, DnsValidationType={DnsType}, DnsVerificationServer={DnsServer}, DnsPropagationMaxAttempts={DnsAttempts}, DnsPropagationDelaySeconds={DnsDelay}, DomainValidatorFactory available={HasFactory}",
                     _config.Enabled, _config.SSLStoreURL, !string.IsNullOrEmpty(_config.PartnerCode), !string.IsNullOrEmpty(_config.AuthToken),
-                    PageSize, RenewalWindow, _config.DnsValidationEnabled, _config.DnsValidationType,
+                    PageSize, RenewalWindow, _config.DnsValidationEnabled, DnsValidationType,
                     string.IsNullOrEmpty(_config.DnsVerificationServer) ? "(public resolvers)" : _config.DnsVerificationServer,
                     _config.DnsPropagationMaxAttempts, _config.DnsPropagationDelaySeconds, _validatorFactory != null);
             }
@@ -771,7 +780,7 @@ namespace Keyfactor.AnyGateway.SslStore
 
             _logger.LogInformation(
                 "Staging {Count} DNS validation record(s) via validation type '{ValidationType}' (verification server: {Server}, {Attempts} attempt(s) x {Delay}s).",
-                records.Count, _config.DnsValidationType,
+                records.Count, DnsValidationType,
                 string.IsNullOrEmpty(_config.DnsVerificationServer) ? "public resolvers" : _config.DnsVerificationServer,
                 _config.DnsPropagationMaxAttempts, _config.DnsPropagationDelaySeconds);
 
@@ -784,22 +793,22 @@ namespace Keyfactor.AnyGateway.SslStore
                 IDomainValidator validator;
                 try
                 {
-                    validator = _validatorFactory.ResolveDomainValidator(domain, _config.DnsValidationType);
+                    validator = _validatorFactory.ResolveDomainValidator(domain, DnsValidationType);
                     flow.Step($"ResolveValidator[{domain}]", validator != null ? validator.GetType().Name : "null");
                 }
                 catch (Exception ex)
                 {
                     flow.Fail($"ResolveValidator[{domain}]", ex.Message);
-                    _logger.LogError(ex, "Failed to resolve DNS provider plugin for '{Domain}' (validation type '{ValidationType}')", domain, _config.DnsValidationType);
-                    return $"Failed to resolve DNS provider plugin for '{domain}' (validation type '{_config.DnsValidationType}'): {ex.Message}";
+                    _logger.LogError(ex, "Failed to resolve DNS provider plugin for '{Domain}' (validation type '{ValidationType}')", domain, DnsValidationType);
+                    return $"Failed to resolve DNS provider plugin for '{domain}' (validation type '{DnsValidationType}'): {ex.Message}";
                 }
 
                 if (validator == null)
                 {
                     flow.Fail($"ResolveValidator[{domain}]", "no validator resolved");
-                    _logger.LogError("No DNS provider plugin resolved for '{Domain}' (validation type '{ValidationType}').", domain, _config.DnsValidationType);
-                    return $"No DNS provider plugin resolved for '{domain}' (validation type '{_config.DnsValidationType}'). " +
-                           "Ensure a DNS provider plugin is deployed and configured for the zone that hosts this domain.";
+                    _logger.LogError("No DNS provider plugin resolved for '{Domain}' (validation type '{ValidationType}').", domain, DnsValidationType);
+                    return $"No DNS provider plugin resolved for '{domain}' (validation type '{DnsValidationType}'). " +
+                           "Ensure a DNS provider plugin is deployed and mapped to this domain in the gateway's Domain Validation configuration.";
                 }
 
                 DomainValidationResult result = null;
@@ -859,7 +868,7 @@ namespace Keyfactor.AnyGateway.SslStore
             {
                 try
                 {
-                    var validator = _validatorFactory.ResolveDomainValidator(domain, _config.DnsValidationType);
+                    var validator = _validatorFactory.ResolveDomainValidator(domain, DnsValidationType);
                     if (validator == null)
                     {
                         _logger.LogTrace("No validator resolved for '{Domain}' during cleanup; skipping record {RecordName}.", domain, recordName);

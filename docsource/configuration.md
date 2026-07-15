@@ -207,7 +207,6 @@ When registering the SSL Store CA in the AnyCA Gateway, you'll need to provide t
 | **Enabled** | Flag to Enable or Disable the CA connector | No | `true` |
 | **RenewalWindow** | Days before order expiry to trigger renewal vs. reissue | No | `30` |
 | **DnsValidationEnabled** | Enable automated DNS (CNAME) domain control validation instead of email approvers | No | `false` |
-| **DnsValidationType** | Validation type passed to the DNS provider plugin framework | No | `dns-01` |
 | **DnsVerificationServer** | Optional authoritative/internal DNS server IP used to verify record propagation | No | (empty) |
 
 ### Gateway Registration Notes
@@ -242,7 +241,6 @@ Populate using the configuration fields collected in the [requirements](#require
 * **Enabled** - Flag to enable or disable the CA connector. Set to `true` to enable.
 * **RenewalWindow** - Number of days before an order's expiration date to trigger a renewal (new order) instead of a reissue (same order). Default is 30 days.
 * **DnsValidationEnabled** - When `true`, the plugin requests CNAME-based domain control validation from SSL Store and automatically publishes the returned validation record using the DNS provider plugin resolved by the AnyCA Gateway. When `false` (default), the email approver validation flow is used.
-* **DnsValidationType** - The validation type string passed to the DNS provider plugin framework when resolving a domain validator. This must match the validation type advertised by your deployed DNS provider plugin (its `GetValidationType()`). SSL Store DCV is CNAME-based, so this must resolve a **CNAME** validator (e.g. `Ns1CnameDomainValidator`, `CloudflareCnameDomainValidator`) that publishes a CNAME record — not the `dns-01`/TXT variant. Default is `cname`.
 * **DnsVerificationServer** - Optional. IP address of an authoritative or internal DNS server used to confirm record propagation. Leave empty to verify against public resolvers (Google, Cloudflare, OpenDNS, Quad9).
 * **DnsPropagationMaxAttempts** - Number of times to poll DNS for the validation record before giving up during enrollment. Total wait is roughly `(attempts - 1) × delay` seconds. Default is 3.
 * **DnsPropagationDelaySeconds** - Seconds to wait between DNS propagation polling attempts. Enrollment blocks for this duration, so keep the combined wait reasonable — propagation is best-effort and SSL Store re-checks on its own schedule. Default is 10.
@@ -256,19 +254,28 @@ Cloudflare, Google Cloud DNS, NS1, Infoblox, RFC2136, etc.) are deployed and con
 gateway injects an `IDomainValidatorFactory` that resolves the correct provider for each
 domain at enrollment time.
 
+SSL Store domain control validation is always **CNAME-based**, so the plugin always requests
+the `cname` validation type from the framework — this is intrinsic to the CA and is **not** a
+configurable setting. What you configure is the **domain-to-validator mapping** in the
+gateway's **Domain Validation** section: for each domain (e.g. `*.example.com`) you select a
+**CNAME** validator (e.g. `Ns1CnameDomainValidator`, `CloudflareCnameDomainValidator`) that
+publishes a CNAME record. Do **not** select the `dns-01`/TXT variant (e.g. `Ns1DomainValidator`) —
+it publishes a TXT record, which SSL Store's CNAME DCV will never satisfy.
+
 When `DnsValidationEnabled` is set (or the `CName Auth Domain Validation` template parameter
 is `True`), enrollment proceeds as follows:
 
 1. The order is submitted to SSL Store with the CNAME DCV indicator set.
 2. SSL Store returns the CNAME validation record (`CNAMEAuthName` → `CNAMEAuthValue`).
-3. The plugin resolves a DNS provider plugin for the domain and publishes the CNAME record.
+3. The plugin resolves the CNAME validator mapped to the domain and publishes the CNAME record.
 4. The plugin verifies the record has propagated to public (or the configured) DNS resolvers.
 5. Enrollment returns as pending external validation; SSL Store completes validation on its
    own schedule and the certificate is retrieved on the next sync / status check.
 6. Once the order is issued, the plugin makes a best-effort attempt to remove the CNAME record.
 
-A DNS provider plugin for the relevant zone must be deployed and configured on the gateway;
-otherwise enrollment fails with a "no DNS provider plugin resolved" error.
+A CNAME DNS validator for the relevant zone must be deployed and mapped to the domain in the
+gateway's Domain Validation configuration; otherwise enrollment fails with a "no DNS provider
+plugin resolved" error.
 
 ## Certificate Template Creation Step
 
