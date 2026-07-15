@@ -75,9 +75,16 @@ namespace Keyfactor.AnyGateway.SslStore.Clients.DNS
             QueryType recordType = QueryType.CNAME,
             int minimumServers = 3)
         {
+            if (string.IsNullOrWhiteSpace(recordName) || string.IsNullOrWhiteSpace(expectedValue))
+            {
+                _logger.LogWarning("DNS propagation check skipped: recordName or expectedValue was empty (record '{RecordName}').", recordName);
+                return false;
+            }
+
             _logger.LogInformation("Waiting for DNS propagation of {RecordType} record {RecordName}", recordType, recordName);
 
-            var requiredServers = _usePrivateDns ? 1 : minimumServers;
+            // Never require more confirmations than we have resolvers to query, or it can never succeed.
+            var requiredServers = _usePrivateDns ? 1 : Math.Min(Math.Max(1, minimumServers), _dnsServers.Count);
 
             for (int attempt = 1; attempt <= _maxVerificationAttempts; attempt++)
             {

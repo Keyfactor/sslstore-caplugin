@@ -36,6 +36,14 @@ namespace Keyfactor.AnyGateway.SslStore
 
         /// <summary>Seconds between polls while waiting for SSL Store to issue a DNS-validated order.</summary>
         private const int DcvPollIntervalSeconds = 15;
+
+        // Guardrails so a mis-typed CA-connection value cannot make enrollment block for an
+        // unreasonable time or spin uselessly. Values outside these bounds are clamped at Initialize.
+        private const int MinRenewalWindowDays = 1;
+        private const int MaxRenewalWindowDays = 3650;
+        private const int MaxDnsPropagationMaxAttempts = 30;
+        private const int MaxDnsPropagationDelaySeconds = 120;
+        private const int MaxDcvPollTimeoutSeconds = 600;
         private RequestManager _requestManager;
         private IAnyCAPluginConfigProvider Config { get; set; }
         private ICertificateDataReader _certDataReader;
@@ -77,10 +85,18 @@ namespace Keyfactor.AnyGateway.SslStore
 
                 flow.Step("ApplyConfig", () =>
                 {
+                    if (_config == null)
+                        throw new InvalidOperationException("CA connection data could not be deserialized into a configuration object.");
+
                     PartnerCode = _config.PartnerCode;
                     AuthenticationToken = _config.AuthToken;
                     PageSize = _config.PageSize > 0 ? _config.PageSize : SslStoreCAPluginConfig.DefaultPageSize;
-                    RenewalWindow = _config.RenewalWindow > 0 ? _config.RenewalWindow : 30;
+                    RenewalWindow = Clamp(_config.RenewalWindow > 0 ? _config.RenewalWindow : 30, MinRenewalWindowDays, MaxRenewalWindowDays, "RenewalWindow");
+
+                    // Clamp DNS/DCV timing so a bad value can't make enrollment block forever or spin.
+                    _config.DnsPropagationMaxAttempts = Clamp(_config.DnsPropagationMaxAttempts > 0 ? _config.DnsPropagationMaxAttempts : 3, 1, MaxDnsPropagationMaxAttempts, "DnsPropagationMaxAttempts");
+                    _config.DnsPropagationDelaySeconds = Clamp(_config.DnsPropagationDelaySeconds > 0 ? _config.DnsPropagationDelaySeconds : 10, 1, MaxDnsPropagationDelaySeconds, "DnsPropagationDelaySeconds");
+                    _config.DcvPollTimeoutSeconds = Clamp(_config.DcvPollTimeoutSeconds, 0, MaxDcvPollTimeoutSeconds, "DcvPollTimeoutSeconds");
                 }, $"PageSize={PageSize}, RenewalWindow={RenewalWindow}");
 
                 flow.Step("CreateRequestManager", () => _requestManager = new RequestManager(this));
@@ -234,6 +250,16 @@ namespace Keyfactor.AnyGateway.SslStore
                 enrollmentType, productInfo?.ProductID, subject,
                 san != null && san.ContainsKey("dns") ? san["dns"].Length : 0, requestFormat);
             using var flow = new FlowLogger(_logger, $"Enroll-{enrollmentType}");
+
+            if (productInfo == null)
+            {
+                flow.Fail("ValidateInputs", "productInfo is null");
+                _logger.LogError("Enroll called with null productInfo.");
+                return new EnrollmentResult { Status = (int)EndEntityStatus.FAILED, StatusMessage = "Enrollment product information was not provided." };
+            }
+            // ProductParameters is dereferenced throughout; guarantee a non-null map.
+            var productParameters = productInfo.ProductParameters ?? new Dictionary<string, string>();
+
             var client = new SslStoreClient(Config);
 
             try
@@ -245,7 +271,7 @@ namespace Keyfactor.AnyGateway.SslStore
                     flow.Branch("NewEnrollment");
                     _logger.LogTrace("Entering New Enrollment");
 
-                    if (!productInfo.ProductParameters.ContainsKey("PriorCertSN"))
+                    if (!productParameters.ContainsKey("PriorCertSN"))
                     {
                         // Extract domain name from CSR subject and SANs from the Keyfactor san parameter
                         var domainName = subject?.Split(',')
@@ -267,10 +293,10 @@ namespace Keyfactor.AnyGateway.SslStore
                         {
                             flow.Branch("EmailApproverValidation");
                             string[] arrayApproverEmails = Array.Empty<string>();
-                            if (productInfo.ProductParameters.ContainsKey("Approver Email"))
+                            if (productParameters.ContainsKey("Approver Email"))
                             {
-                                _logger.LogTrace($"Approver Email {productInfo.ProductParameters["Approver Email"]}");
-                                arrayApproverEmails = productInfo.ProductParameters["Approver Email"].Split(new char[] { ',' });
+                                _logger.LogTrace($"Approver Email {productParameters["Approver Email"]}");
+                                arrayApproverEmails = productParameters["Approver Email"].Split(new char[] { ',' });
                             }
 
                             // Validate approver emails against all domains (CN + SANs)
@@ -336,17 +362,25 @@ namespace Keyfactor.AnyGateway.SslStore
                             // The CNAME is published; poll SSL Store for issuance and, if it issues within the
                             // configured window, return the certificate directly from this enrollment call
                             // (ACME-style). Otherwise fall through to a pending result and let CA sync finish it.
-                            var compositeId = BuildCompositeRequestId(enrollmentResponse.TheSslStoreOrderId, enrollmentResponse.PartnerOrderId);
-                            EnrollmentResult issuedResult = null;
-                            await flow.StepAsync("PollForIssuance",
-                                async () => issuedResult = await TryPollForIssuedCertAsync(compositeId));
-                            if (issuedResult != null)
+                            if (!string.IsNullOrEmpty(enrollmentResponse.TheSslStoreOrderId) && !string.IsNullOrEmpty(enrollmentResponse.PartnerOrderId))
                             {
-                                flow.Step("PollResult", "issued during poll window");
-                                flow.EndBranch();
-                                return issuedResult;
+                                var compositeId = BuildCompositeRequestId(enrollmentResponse.TheSslStoreOrderId, enrollmentResponse.PartnerOrderId);
+                                EnrollmentResult issuedResult = null;
+                                await flow.StepAsync("PollForIssuance",
+                                    async () => issuedResult = await TryPollForIssuedCertAsync(compositeId));
+                                if (issuedResult != null)
+                                {
+                                    flow.Step("PollResult", "issued during poll window");
+                                    flow.EndBranch();
+                                    return issuedResult;
+                                }
+                                flow.Skip("PollResult", "not issued within poll window; returning pending");
                             }
-                            flow.Skip("PollResult", "not issued within poll window; returning pending");
+                            else
+                            {
+                                flow.Skip("PollForIssuance", "SSL Store did not return both order IDs; cannot poll");
+                                _logger.LogWarning("Cannot poll for issuance: SSL Store response missing TheSslStoreOrderId/PartnerOrderId.");
+                            }
                         }
                         flow.EndBranch();
                     }
@@ -366,7 +400,12 @@ namespace Keyfactor.AnyGateway.SslStore
                     flow.Branch("RenewOrReissue");
                     _logger.LogTrace("Entering Renew/Reissue Logic...");
 
-                    var sn = productInfo.ProductParameters["PriorCertSN"];
+                    if (!productParameters.TryGetValue("PriorCertSN", out var sn) || string.IsNullOrEmpty(sn))
+                    {
+                        flow.Fail("ValidatePriorSN", "PriorCertSN missing");
+                        _logger.LogError("Renew/Reissue enrollment is missing the required PriorCertSN parameter.");
+                        return new EnrollmentResult { Status = (int)EndEntityStatus.FAILED, StatusMessage = "Renewal/reissue requires the prior certificate serial number (PriorCertSN)." };
+                    }
                     _logger.LogTrace($"Prior Cert Serial Number: {sn}");
 
                     var caRequestId = await _certDataReader.GetRequestIDBySerialNumber(sn);
@@ -454,6 +493,25 @@ namespace Keyfactor.AnyGateway.SslStore
         private static string BuildCompositeRequestId(string theSslStoreOrderId, string partnerOrderId)
         {
             return $"{theSslStoreOrderId}-{partnerOrderId}";
+        }
+
+        /// <summary>
+        /// Clamps a configuration value into [min, max], logging a warning when the supplied value
+        /// was out of range so operators can see their setting was overridden.
+        /// </summary>
+        private static int Clamp(int value, int min, int max, string name)
+        {
+            if (value < min)
+            {
+                _logger.LogWarning("Config value {Name}={Value} is below the minimum {Min}; using {Min}.", name, value, min);
+                return min;
+            }
+            if (value > max)
+            {
+                _logger.LogWarning("Config value {Name}={Value} is above the maximum {Max}; using {Max}.", name, value, max);
+                return max;
+            }
+            return value;
         }
 
         /// <summary>
@@ -909,9 +967,21 @@ namespace Keyfactor.AnyGateway.SslStore
                 _logger.LogInformation("Published DNS validation record {RecordName} for '{Domain}' via {Validator}.",
                     recordName, domain, validator.GetType().Name);
 
+                // Propagation verification is best-effort: the record is already published, and SSL Store
+                // re-checks DNS on its own schedule. A verification failure (or an unexpected error in the
+                // DNS client) must never fail an enrollment whose record was successfully published.
                 var propagated = false;
-                await flow.StepAsync($"VerifyPropagation[{recordName}]",
-                    async () => propagated = await verifier.WaitForDnsPropagationAsync(recordName, recordValue, QueryType.CNAME, 3));
+                try
+                {
+                    await flow.StepAsync($"VerifyPropagation[{recordName}]",
+                        async () => propagated = await verifier.WaitForDnsPropagationAsync(recordName, recordValue, QueryType.CNAME, 3));
+                }
+                catch (Exception ex)
+                {
+                    flow.Skip($"VerifyPropagation[{recordName}]", $"verification error (best-effort): {ex.Message}");
+                    _logger.LogWarning(ex, "DNS propagation verification for {RecordName} ('{Domain}') threw; continuing (best-effort).", recordName, domain);
+                }
+
                 if (!propagated)
                 {
                     flow.Skip($"VerifyPropagation[{recordName}]", "not yet confirmed (best-effort)");
