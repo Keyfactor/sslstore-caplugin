@@ -19,8 +19,10 @@ namespace Keyfactor.AnyGateway.SslStore.Clients.DNS
         private static readonly ILogger _logger = LogHandler.GetClassLogger<DnsVerificationHelper>();
         private readonly List<IPAddress> _dnsServers;
         private readonly bool _usePrivateDns;
-        private const int MaxVerificationAttempts = 3;
-        private const int VerificationDelaySeconds = 10;
+        private const int DefaultMaxVerificationAttempts = 3;
+        private const int DefaultVerificationDelaySeconds = 10;
+        private readonly int _maxVerificationAttempts;
+        private readonly int _verificationDelaySeconds;
 
         /// <summary>
         /// Creates a DNS verification helper.
@@ -28,8 +30,14 @@ namespace Keyfactor.AnyGateway.SslStore.Clients.DNS
         /// <param name="verificationServer">Optional DNS server IP for verification. For
         /// private/internal zones, specify your authoritative DNS server. Leave null/empty to
         /// use public DNS servers.</param>
-        public DnsVerificationHelper(string verificationServer = null)
+        /// <param name="maxVerificationAttempts">Number of times to poll DNS for the record before
+        /// giving up. Values below 1 fall back to the default.</param>
+        /// <param name="verificationDelaySeconds">Seconds to wait between polling attempts. Values
+        /// below 1 fall back to the default.</param>
+        public DnsVerificationHelper(string verificationServer = null, int maxVerificationAttempts = DefaultMaxVerificationAttempts, int verificationDelaySeconds = DefaultVerificationDelaySeconds)
         {
+            _maxVerificationAttempts = maxVerificationAttempts > 0 ? maxVerificationAttempts : DefaultMaxVerificationAttempts;
+            _verificationDelaySeconds = verificationDelaySeconds > 0 ? verificationDelaySeconds : DefaultVerificationDelaySeconds;
             _dnsServers = new List<IPAddress>();
 
             if (!string.IsNullOrWhiteSpace(verificationServer) && IPAddress.TryParse(verificationServer, out var privateServer))
@@ -71,7 +79,7 @@ namespace Keyfactor.AnyGateway.SslStore.Clients.DNS
 
             var requiredServers = _usePrivateDns ? 1 : minimumServers;
 
-            for (int attempt = 1; attempt <= MaxVerificationAttempts; attempt++)
+            for (int attempt = 1; attempt <= _maxVerificationAttempts; attempt++)
             {
                 var successCount = 0;
                 var results = new List<string>();
@@ -92,7 +100,7 @@ namespace Keyfactor.AnyGateway.SslStore.Clients.DNS
                 }
 
                 _logger.LogDebug("DNS verification attempt {Attempt}/{MaxAttempts}: {SuccessCount}/{TotalServers} servers confirmed record. Results: {Results}",
-                    attempt, MaxVerificationAttempts, successCount, _dnsServers.Count, string.Join(", ", results));
+                    attempt, _maxVerificationAttempts, successCount, _dnsServers.Count, string.Join(", ", results));
 
                 if (successCount >= requiredServers)
                 {
@@ -101,15 +109,16 @@ namespace Keyfactor.AnyGateway.SslStore.Clients.DNS
                     return true;
                 }
 
-                if (attempt < MaxVerificationAttempts)
+                if (attempt < _maxVerificationAttempts)
                 {
-                    _logger.LogDebug("Waiting {Delay} seconds before next DNS verification attempt...", VerificationDelaySeconds);
-                    await Task.Delay(TimeSpan.FromSeconds(VerificationDelaySeconds));
+                    _logger.LogDebug("Waiting {Delay} seconds before next DNS verification attempt...", _verificationDelaySeconds);
+                    await Task.Delay(TimeSpan.FromSeconds(_verificationDelaySeconds));
                 }
             }
 
-            _logger.LogWarning("DNS record did not propagate within {MaxAttempts} attempts (~{TotalMinutes} minute(s))",
-                MaxVerificationAttempts, MaxVerificationAttempts * VerificationDelaySeconds / 60);
+            var totalWaitSeconds = (_maxVerificationAttempts - 1) * _verificationDelaySeconds;
+            _logger.LogWarning("DNS record did not propagate within {MaxAttempts} attempts (~{TotalSeconds} second(s))",
+                _maxVerificationAttempts, totalWaitSeconds);
             return false;
         }
 

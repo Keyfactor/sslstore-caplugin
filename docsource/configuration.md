@@ -242,8 +242,10 @@ Populate using the configuration fields collected in the [requirements](#require
 * **Enabled** - Flag to enable or disable the CA connector. Set to `true` to enable.
 * **RenewalWindow** - Number of days before an order's expiration date to trigger a renewal (new order) instead of a reissue (same order). Default is 30 days.
 * **DnsValidationEnabled** - When `true`, the plugin requests CNAME-based domain control validation from SSL Store and automatically publishes the returned validation record using the DNS provider plugin resolved by the AnyCA Gateway. When `false` (default), the email approver validation flow is used.
-* **DnsValidationType** - The validation type string passed to the DNS provider plugin framework when resolving a domain validator. This must match the validation type advertised by your deployed DNS provider plugin (its `GetValidationType()`). Default is `dns-01`.
+* **DnsValidationType** - The validation type string passed to the DNS provider plugin framework when resolving a domain validator. This must match the validation type advertised by your deployed DNS provider plugin (its `GetValidationType()`). SSL Store DCV is CNAME-based, so this must resolve a **CNAME** validator (e.g. `Ns1CnameDomainValidator`, `CloudflareCnameDomainValidator`) that publishes a CNAME record — not the `dns-01`/TXT variant. Default is `cname`.
 * **DnsVerificationServer** - Optional. IP address of an authoritative or internal DNS server used to confirm record propagation. Leave empty to verify against public resolvers (Google, Cloudflare, OpenDNS, Quad9).
+* **DnsPropagationMaxAttempts** - Number of times to poll DNS for the validation record before giving up during enrollment. Total wait is roughly `(attempts - 1) × delay` seconds. Default is 3.
+* **DnsPropagationDelaySeconds** - Seconds to wait between DNS propagation polling attempts. Enrollment blocks for this duration, so keep the combined wait reasonable — propagation is best-effort and SSL Store re-checks on its own schedule. Default is 10.
 
 ### Automated DNS (CNAME) Domain Validation
 

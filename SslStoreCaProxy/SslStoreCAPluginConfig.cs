@@ -18,6 +18,8 @@ namespace Keyfactor.AnyGateway.SslStore
             public static string DnsValidationEnabled = "DnsValidationEnabled";
             public static string DnsValidationType = "DnsValidationType";
             public static string DnsVerificationServer = "DnsVerificationServer";
+            public static string DnsPropagationMaxAttempts = "DnsPropagationMaxAttempts";
+            public static string DnsPropagationDelaySeconds = "DnsPropagationDelaySeconds";
         }
 
         public class Config
@@ -29,8 +31,10 @@ namespace Keyfactor.AnyGateway.SslStore
             public bool Enabled { get; set; }
             public int RenewalWindow { get; set; } = 30;
             public bool DnsValidationEnabled { get; set; }
-            public string DnsValidationType { get; set; } = "dns-01";
+            public string DnsValidationType { get; set; } = "cname";
             public string DnsVerificationServer { get; set; }
+            public int DnsPropagationMaxAttempts { get; set; } = 3;
+            public int DnsPropagationDelaySeconds { get; set; } = 10;
         }
 
         public static Dictionary<string, PropertyConfigInfo> GetPluginAnnotations()
@@ -93,9 +97,11 @@ namespace Keyfactor.AnyGateway.SslStore
                 {
                     Comments = "The validation type passed to the DNS provider plugin framework when resolving a domain " +
                                "validator. Must match the validation type advertised by your deployed DNS provider plugin " +
-                               "(GetValidationType). Defaults to 'dns-01'.",
+                               "(GetValidationType). SSL Store domain control validation is CNAME-based, so this must resolve " +
+                               "a CNAME validator (e.g. Ns1CnameDomainValidator, CloudflareCnameDomainValidator) that publishes " +
+                               "a CNAME record. Defaults to 'cname'.",
                     Hidden = false,
-                    DefaultValue = "dns-01",
+                    DefaultValue = "cname",
                     Type = "String"
                 },
                 [ConfigConstants.DnsVerificationServer] = new PropertyConfigInfo()
@@ -105,6 +111,24 @@ namespace Keyfactor.AnyGateway.SslStore
                     Hidden = false,
                     DefaultValue = "",
                     Type = "String"
+                },
+                [ConfigConstants.DnsPropagationMaxAttempts] = new PropertyConfigInfo()
+                {
+                    Comments = "Number of times to poll DNS for the validation record before giving up during enrollment. " +
+                               "Total wait is roughly (attempts - 1) x delay seconds. Increase this (and/or the delay) if records " +
+                               "routinely need longer to propagate. Defaults to 3.",
+                    Hidden = false,
+                    DefaultValue = 3,
+                    Type = "Number"
+                },
+                [ConfigConstants.DnsPropagationDelaySeconds] = new PropertyConfigInfo()
+                {
+                    Comments = "Seconds to wait between DNS propagation polling attempts during enrollment. Total wait is roughly " +
+                               "(attempts - 1) x delay seconds. Defaults to 10. Note: enrollment blocks for this duration, so keep " +
+                               "the combined wait reasonable — propagation is best-effort and SSL Store re-checks on its own schedule.",
+                    Hidden = false,
+                    DefaultValue = 10,
+                    Type = "Number"
                 }
             };
         }

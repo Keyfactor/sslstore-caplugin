@@ -596,7 +596,7 @@ namespace Keyfactor.AnyGateway.SslStore
                 return "";
             }
 
-            var verifier = new DnsVerificationHelper(_config.DnsVerificationServer);
+            var verifier = new DnsVerificationHelper(_config.DnsVerificationServer, _config.DnsPropagationMaxAttempts, _config.DnsPropagationDelaySeconds);
 
             foreach (var (domain, recordName, recordValue) in records)
             {
