@@ -511,31 +511,28 @@ namespace Keyfactor.AnyGateway.SslStore
                 flow.Step("MapStatus", $"{orderStatusResponse?.OrderStatus?.MajorStatus} -> {certStatus}");
                 var certificate = string.Empty;
 
-                if (certStatus == (int)EndEntityStatus.GENERATED)
-                {
-                    flow.Branch("DownloadIssuedCert");
-                    var downloadCertificateRequest = _requestManager.GetCertificateRequestBySslStoreId(sslStoreOrderId ?? orderStatusResponse.TheSslStoreOrderId);
-                    IDownloadCertificateResponse certResponse = null;
-                    await flow.StepAsync("DownloadCertificate",
-                        async () => certResponse = await client.SubmitDownloadCertificateAsync(downloadCertificateRequest));
-                    if (!certResponse.AuthResponse.IsError)
-                    {
-                        flow.Step("ExtractLeafCert", () =>
-                        {
-                            var fullChain = string.Join("\n", certResponse.Certificates.Select(c => c.FileContent));
-                            var endEntityCert = X509Utilities.ExtractEndEntityCertificateContents(fullChain, null);
-                            certificate = Convert.ToBase64String(endEntityCert.RawData);
-                        });
-                    }
-                    else
-                    {
-                        flow.Fail("DownloadCertificate", "AuthResponse.IsError");
-                        _logger.LogWarning("Certificate download reported an error for CARequestID '{CaRequestId}'", caRequestId);
-                    }
+                var isIssued = certStatus == (int)EndEntityStatus.GENERATED;
+                var isRevoked = certStatus == (int)EndEntityStatus.REVOKED;
 
-                    // Order is issued - best-effort cleanup of any DNS validation records we published.
-                    await flow.StepAsync("CleanupDnsValidation",
-                        async () => await CleanupDnsValidationAsync(orderStatusResponse));
+                if (isIssued || isRevoked)
+                {
+                    // Download the certificate for both issued and revoked orders so a valid cert is
+                    // always returned when one exists. A revoked order that was never issued yields no
+                    // content (empty) rather than a corrupt/empty certificate handle.
+                    flow.Branch(isIssued ? "DownloadIssuedCert" : "DownloadRevokedCert");
+                    await flow.StepAsync("DownloadCertificate",
+                        async () => certificate = await DownloadLeafCertificateAsync(
+                            client, sslStoreOrderId ?? orderStatusResponse.TheSslStoreOrderId, caRequestId));
+
+                    if (isRevoked && string.IsNullOrEmpty(certificate))
+                        _logger.LogWarning("Revoked order '{CaRequestId}' has no downloadable certificate.", caRequestId);
+
+                    if (isIssued)
+                    {
+                        // Order is issued - best-effort cleanup of any DNS validation records we published.
+                        await flow.StepAsync("CleanupDnsValidation",
+                            async () => await CleanupDnsValidationAsync(orderStatusResponse));
+                    }
                     flow.EndBranch();
                 }
 
@@ -613,27 +610,25 @@ namespace Keyfactor.AnyGateway.SslStore
                         _logger.LogTrace("Sync order {CompositeId}: MajorStatus={MajorStatus} -> {CertStatus}",
                             compositeId, orderStatusResponse.OrderStatus.MajorStatus, certStatus);
 
-                        if (certStatus == (int)EndEntityStatus.GENERATED)
-                        {
-                            var downloadCertificateRequest = _requestManager.GetCertificateRequestBySslStoreId(theSslStoreOrderId);
-                            var certResponse = await client.SubmitDownloadCertificateAsync(downloadCertificateRequest);
-                            if (!certResponse.AuthResponse.IsError)
-                            {
-                                var fullChain = string.Join("\n", certResponse.Certificates.Select(c => c.FileContent));
-                                var endEntityCert = X509Utilities.ExtractEndEntityCertificateContents(fullChain, null);
-                                fileContent = Convert.ToBase64String(endEntityCert.RawData);
-                            }
-                            else
-                            {
-                                _logger.LogWarning("Certificate download error during sync for order {CompositeId}", compositeId);
-                            }
+                        var isIssued = certStatus == (int)EndEntityStatus.GENERATED;
+                        var isRevoked = certStatus == (int)EndEntityStatus.REVOKED;
 
-                            // Order is issued - best-effort cleanup of any DNS validation records we published.
-                            await CleanupDnsValidationAsync(orderStatusResponse);
+                        if (isIssued || isRevoked)
+                        {
+                            // Download the certificate for both issued and revoked (Cancelled) orders so
+                            // the gateway always stores valid DER. Revoked orders that were never issued
+                            // return no content and are skipped below — storing an empty certificate makes
+                            // the gateway's certificate search fail with "m_safeCertContext is an invalid handle".
+                            fileContent = await DownloadLeafCertificateAsync(client, theSslStoreOrderId, compositeId);
+
+                            if (isIssued)
+                            {
+                                // Order is issued - best-effort cleanup of any DNS validation records we published.
+                                await CleanupDnsValidationAsync(orderStatusResponse);
+                            }
                         }
 
-                        if ((certStatus == (int)EndEntityStatus.GENERATED && fileContent.Length > 0) ||
-                            certStatus == (int)EndEntityStatus.REVOKED)
+                        if ((isIssued || isRevoked) && fileContent.Length > 0)
                         {
                             added++;
                             blockingBuffer.Add(new AnyCAPluginCertificate
@@ -646,6 +641,8 @@ namespace Keyfactor.AnyGateway.SslStore
                         }
                         else
                         {
+                            if (isRevoked)
+                                _logger.LogWarning("Skipping revoked order {CompositeId} with no downloadable certificate (nothing to store).", compositeId);
                             skipped++;
                         }
                     }
@@ -671,6 +668,33 @@ namespace Keyfactor.AnyGateway.SslStore
             {
                 _logger.MethodExit();
             }
+        }
+
+        /// <summary>
+        /// Downloads the issued certificate for an order and returns the base64-encoded end-entity
+        /// certificate, or an empty string if the download reported an error or returned no content.
+        /// Used for both issued and revoked orders so the gateway always stores valid certificate
+        /// bytes; callers must treat an empty result as "no certificate available".
+        /// </summary>
+        private async Task<string> DownloadLeafCertificateAsync(SslStoreClient client, string theSslStoreOrderId, string compositeId)
+        {
+            var downloadCertificateRequest = _requestManager.GetCertificateRequestBySslStoreId(theSslStoreOrderId);
+            var certResponse = await client.SubmitDownloadCertificateAsync(downloadCertificateRequest);
+            if (certResponse == null || certResponse.AuthResponse.IsError)
+            {
+                _logger.LogWarning("Certificate download reported an error for order {CompositeId}.", compositeId);
+                return string.Empty;
+            }
+
+            var fullChain = string.Join("\n", certResponse.Certificates.Select(c => c.FileContent));
+            if (string.IsNullOrWhiteSpace(fullChain))
+            {
+                _logger.LogWarning("Certificate download returned no content for order {CompositeId}.", compositeId);
+                return string.Empty;
+            }
+
+            var endEntityCert = X509Utilities.ExtractEndEntityCertificateContents(fullChain, null);
+            return Convert.ToBase64String(endEntityCert.RawData);
         }
 
         private string ValidateEmails(EmailApproverResponse validEmails, string[] arrayApproverEmails, EnrollmentProductInfo productInfo, int count)
