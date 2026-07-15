@@ -13,6 +13,7 @@ The SSL Store AnyCA Gateway REST plugin extends the capabilities of the SSL Stor
     * Support for DV, OV, and EV certificate products
     * Multi-domain (MDC/SAN) and wildcard certificate support
     * Automatic domain validation with approver email verification
+    * Automated DNS (CNAME) domain control validation via the AnyCA Gateway DNS provider plugin framework
     * 80+ pre-configured certificate products across DigiCert and Sectigo families
 * **Certificate Revocation**:
     * Request revocation of previously issued certificates via SSL Store refund request API
@@ -205,6 +206,8 @@ When registering the SSL Store CA in the AnyCA Gateway, you'll need to provide t
 | **PageSize** | Number of records per page during synchronization | No | `100` |
 | **Enabled** | Flag to Enable or Disable the CA connector | No | `true` |
 | **RenewalWindow** | Days before order expiry to trigger renewal vs. reissue | No | `30` |
+| **DnsValidationEnabled** | Enable automated DNS (CNAME) domain control validation instead of email approvers | No | `false` |
+| **DnsVerificationServer** | Optional authoritative/internal DNS server IP used to verify record propagation | No | (empty) |
 
 ### Gateway Registration Notes
 
@@ -237,6 +240,42 @@ Populate using the configuration fields collected in the [requirements](#require
 * **PageSize** - Number of records to retrieve per page during certificate synchronization. Default is 100.
 * **Enabled** - Flag to enable or disable the CA connector. Set to `true` to enable.
 * **RenewalWindow** - Number of days before an order's expiration date to trigger a renewal (new order) instead of a reissue (same order). Default is 30 days.
+* **DnsValidationEnabled** - When `true`, the plugin requests CNAME-based domain control validation from SSL Store and automatically publishes the returned validation record using the DNS provider plugin resolved by the AnyCA Gateway. When `false` (default), the email approver validation flow is used.
+* **DnsVerificationServer** - Optional. IP address of an authoritative or internal DNS server used to confirm record propagation. Leave empty to verify against public resolvers (Google, Cloudflare, OpenDNS, Quad9).
+* **DnsPropagationMaxAttempts** - Number of times to poll DNS for the validation record before giving up during enrollment. Total wait is roughly `(attempts - 1) × delay` seconds. Default is 3.
+* **DnsPropagationDelaySeconds** - Seconds to wait between DNS propagation polling attempts. Enrollment blocks for this duration, so keep the combined wait reasonable — propagation is best-effort and SSL Store re-checks on its own schedule. Default is 10.
+
+### Automated DNS (CNAME) Domain Validation
+
+The plugin integrates with the AnyCA Gateway **generic DNS provider plugin framework**
+(`Keyfactor.AnyGateway.IAnyCAPlugin` 3.3.0+). DNS provider plugins (Azure DNS, AWS Route53,
+Cloudflare, Google Cloud DNS, NS1, Infoblox, RFC2136, etc.) are deployed and configured
+**separately** on the gateway; this CA plugin does not bundle any DNS provider SDKs. The
+gateway injects an `IDomainValidatorFactory` that resolves the correct provider for each
+domain at enrollment time.
+
+SSL Store domain control validation is always **CNAME-based**, so the plugin always requests
+the `cname` validation type from the framework — this is intrinsic to the CA and is **not** a
+configurable setting. What you configure is the **domain-to-validator mapping** in the
+gateway's **Domain Validation** section: for each domain (e.g. `*.example.com`) you select a
+**CNAME** validator (e.g. `Ns1CnameDomainValidator`, `CloudflareCnameDomainValidator`) that
+publishes a CNAME record. Do **not** select the `dns-01`/TXT variant (e.g. `Ns1DomainValidator`) —
+it publishes a TXT record, which SSL Store's CNAME DCV will never satisfy.
+
+When `DnsValidationEnabled` is set (or the `CName Auth Domain Validation` template parameter
+is `True`), enrollment proceeds as follows:
+
+1. The order is submitted to SSL Store with the CNAME DCV indicator set.
+2. SSL Store returns the CNAME validation record (`CNAMEAuthName` → `CNAMEAuthValue`).
+3. The plugin resolves the CNAME validator mapped to the domain and publishes the CNAME record.
+4. The plugin verifies the record has propagated to public (or the configured) DNS resolvers.
+5. Enrollment returns as pending external validation; SSL Store completes validation on its
+   own schedule and the certificate is retrieved on the next sync / status check.
+6. Once the order is issued, the plugin makes a best-effort attempt to remove the CNAME record.
+
+A CNAME DNS validator for the relevant zone must be deployed and mapped to the domain in the
+gateway's Domain Validation configuration; otherwise enrollment fails with a "no DNS provider
+plugin resolved" error.
 
 ## Certificate Template Creation Step
 
@@ -328,6 +367,11 @@ The plugin validates approver emails against SSL Store's approved list for each 
 - **DigiCert products**: Exactly one approver email is required and must be from the approved list
 - **Sectigo/Comodo products**: At least one approver email must be from the approved list
 - Emails are validated per-domain for multi-domain certificates
+
+> **Note:** Approver email validation is skipped when DNS (CNAME) domain control validation is
+> enabled — see [Automated DNS (CNAME) Domain Validation](#automated-dns-cname-domain-validation).
+> DNS validation can be enabled globally via the `DnsValidationEnabled` CA-connection field or
+> per-template via the `CName Auth Domain Validation` parameter.
 
 ### Important Notes
 
