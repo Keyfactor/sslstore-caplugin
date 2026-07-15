@@ -74,7 +74,7 @@ namespace Keyfactor.AnyGateway.SslStore
                     Comments = "Flag to Enable or Disable the CA connector.",
                     Hidden = false,
                     DefaultValue = true,
-                    Type = "Bool"
+                    Type = "Boolean"
                 },
                 [ConfigConstants.RenewalWindow] = new PropertyConfigInfo()
                 {
@@ -91,7 +91,7 @@ namespace Keyfactor.AnyGateway.SslStore
                                "Route53, Cloudflare) to be deployed and configured on the gateway. When disabled, email approver validation is used.",
                     Hidden = false,
                     DefaultValue = false,
-                    Type = "Bool"
+                    Type = "Boolean"
                 },
                 [ConfigConstants.DnsVerificationServer] = new PropertyConfigInfo()
                 {
@@ -391,38 +391,38 @@ namespace Keyfactor.AnyGateway.SslStore
                 },
                 ["File Auth Domain Validation"] = new PropertyConfigInfo()
                 {
-                    Comments = "Use file-based domain validation (True/False).",
+                    Comments = "Use file-based domain validation.",
                     Hidden = false,
-                    DefaultValue = "False",
-                    Type = "String"
+                    DefaultValue = false,
+                    Type = "Boolean"
                 },
                 ["CName Auth Domain Validation"] = new PropertyConfigInfo()
                 {
-                    Comments = "Use CNAME-based domain validation (True/False).",
+                    Comments = "Use CNAME-based domain validation.",
                     Hidden = false,
-                    DefaultValue = "False",
-                    Type = "String"
+                    DefaultValue = false,
+                    Type = "Boolean"
                 },
                 ["Is CU Order?"] = new PropertyConfigInfo()
                 {
-                    Comments = "Is this a CU (Customer) order (True/False).",
+                    Comments = "Is this a CU (Customer) order.",
                     Hidden = false,
-                    DefaultValue = "False",
-                    Type = "String"
+                    DefaultValue = false,
+                    Type = "Boolean"
                 },
                 ["Is Renewal Order?"] = new PropertyConfigInfo()
                 {
-                    Comments = "Is this a renewal order (True/False).",
+                    Comments = "Is this a renewal order.",
                     Hidden = false,
-                    DefaultValue = "False",
-                    Type = "String"
+                    DefaultValue = false,
+                    Type = "Boolean"
                 },
                 ["Is Trial Order?"] = new PropertyConfigInfo()
                 {
-                    Comments = "Is this a trial order (True/False).",
+                    Comments = "Is this a trial order.",
                     Hidden = false,
-                    DefaultValue = "False",
-                    Type = "String"
+                    DefaultValue = false,
+                    Type = "Boolean"
                 }
             };
         }

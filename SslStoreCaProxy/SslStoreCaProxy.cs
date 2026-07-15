@@ -887,7 +887,9 @@ namespace Keyfactor.AnyGateway.SslStore
             if (productInfo?.ProductParameters != null &&
                 productInfo.ProductParameters.TryGetValue("CName Auth Domain Validation", out var flag))
             {
-                return string.Equals(flag, "True", StringComparison.OrdinalIgnoreCase);
+                // The parameter is a Boolean toggle but arrives as a string ("true"/"false").
+                // bool.TryParse is case-insensitive; also accept the legacy "True"/"False" text.
+                return bool.TryParse(flag?.Trim(), out var parsed) && parsed;
             }
 
             return false;
