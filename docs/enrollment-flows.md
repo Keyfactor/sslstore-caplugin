@@ -6,12 +6,12 @@ reference in [`docsource/configuration.md`](../docsource/configuration.md).
 
 There are **two API layers** in play:
 
-1. **AnyCA Gateway REST API** — the EJBCA-compatible REST surface Keyfactor Command calls
-   (e.g. `POST /ejbca/ejbca-rest-api/v1/certificate/certificaterequest`). These are the calls
-   in the Postman collection under [`postman/`](../postman).
-2. **SSL Store WBAPI** — the vendor API the plugin calls internally
-   (`/rest/order/neworder`, `/rest/order/status`, `/rest/order/download`, etc.). You do **not**
-   call these directly; they are shown here so the traces make sense.
+1. **SSL Store WBAPI** — the vendor API the plugin calls
+   (`/rest/order/neworder`, `/rest/order/status`, `/rest/order/download`, etc.). These are the
+   calls in the Postman collection under [`postman/`](../postman).
+2. **AnyCA Gateway REST API** — the EJBCA-compatible REST surface Keyfactor Command calls into the
+   gateway (e.g. `POST /ejbca/ejbca-rest-api/v1/certificate/certificaterequest`). Command drives
+   these; the plugin translates each into the SSL Store calls above.
 
 The plugin never bundles a DNS provider. Automated DNS validation uses the gateway's
 **DNS provider plugin framework**: the plugin asks `IDomainValidatorFactory.ResolveDomainValidator(domain, "cname")`
