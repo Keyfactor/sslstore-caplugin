@@ -9,7 +9,8 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
-		<PackageReference Include="Keyfactor.AnyGateway.IAnyCAPlugin" Version="3.0.0" />
+		<PackageReference Include="DnsClient" Version="1.8.0" />
+		<PackageReference Include="Keyfactor.AnyGateway.IAnyCAPlugin" Version="3.3.0" />
 		<PackageReference Include="Keyfactor.Logging" Version="1.1.1" />
 		<PackageReference Include="Keyfactor.PKI" Version="5.5.0" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
