@@ -275,10 +275,8 @@ The plugin uses a configurable **Renewal Window** (default: 30 days) to determin
         | **Enabled** | Flag to Enable or Disable the CA connector | No | `true` |
         | **RenewalWindow** | Days before order expiry to trigger renewal vs. reissue | No | `30` |
         | **DnsValidationEnabled** | Enable automated DNS (CNAME) domain control validation instead of email approvers | No | `false` |
-        | **DnsValidationType** | Validation type passed to the DNS provider plugin framework. SSL Store DCV is CNAME-based, so this must resolve a CNAME validator (e.g. `Ns1CnameDomainValidator`) | No | `cname` |
+        | **DnsValidationType** | Validation type passed to the DNS provider plugin framework | No | `dns-01` |
         | **DnsVerificationServer** | Optional authoritative/internal DNS server IP used to verify record propagation | No | (empty) |
-        | **DnsPropagationMaxAttempts** | Number of times to poll DNS for the validation record before giving up during enrollment | No | `3` |
-        | **DnsPropagationDelaySeconds** | Seconds to wait between DNS propagation polling attempts (enrollment blocks for this duration) | No | `10` |
         
         ### Gateway Registration Notes
         
