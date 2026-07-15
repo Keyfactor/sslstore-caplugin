@@ -99,8 +99,8 @@ namespace Keyfactor.AnyGateway.SslStore.Clients.DNS
                     }
                 }
 
-                _logger.LogDebug("DNS verification attempt {Attempt}/{MaxAttempts}: {SuccessCount}/{TotalServers} servers confirmed record. Results: {Results}",
-                    attempt, _maxVerificationAttempts, successCount, _dnsServers.Count, string.Join(", ", results));
+                _logger.LogInformation("DNS verification attempt {Attempt}/{MaxAttempts} for {RecordType} {RecordName}: {SuccessCount}/{TotalServers} resolver(s) confirmed (need {Required}). Results: {Results}",
+                    attempt, _maxVerificationAttempts, recordType, recordName, successCount, _dnsServers.Count, requiredServers, string.Join(", ", results));
 
                 if (successCount >= requiredServers)
                 {
@@ -111,7 +111,7 @@ namespace Keyfactor.AnyGateway.SslStore.Clients.DNS
 
                 if (attempt < _maxVerificationAttempts)
                 {
-                    _logger.LogDebug("Waiting {Delay} seconds before next DNS verification attempt...", _verificationDelaySeconds);
+                    _logger.LogInformation("Waiting {Delay} seconds before next DNS verification attempt...", _verificationDelaySeconds);
                     await Task.Delay(TimeSpan.FromSeconds(_verificationDelaySeconds));
                 }
             }
