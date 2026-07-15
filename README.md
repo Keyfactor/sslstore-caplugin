@@ -276,6 +276,9 @@ The plugin uses a configurable **Renewal Window** (default: 30 days) to determin
         | **RenewalWindow** | Days before order expiry to trigger renewal vs. reissue | No | `30` |
         | **DnsValidationEnabled** | Enable automated DNS (CNAME) domain control validation instead of email approvers | No | `false` |
         | **DnsVerificationServer** | Optional authoritative/internal DNS server IP used to verify record propagation | No | (empty) |
+        | **DnsPropagationMaxAttempts** | Times to poll DNS for the validation record before giving up during enrollment | No | `3` |
+        | **DnsPropagationDelaySeconds** | Seconds between DNS propagation polling attempts (enrollment blocks for this) | No | `10` |
+        | **DcvPollTimeoutSeconds** | Seconds to poll SSL Store for issuance after publishing the CNAME; returns the cert inline if issued in time (`0` disables) | No | `90` |
         
         ### Gateway Registration Notes
         
@@ -362,7 +365,7 @@ The plugin uses a configurable **Renewal Window** (default: 30 days) to determin
         * **DnsVerificationServer** - Optional. IP address of an authoritative/internal DNS server to use when verifying record propagation. Leave empty to verify against public DNS resolvers (Google, Cloudflare, OpenDNS, Quad9).
         * **DnsPropagationMaxAttempts** - Number of times to poll DNS for the validation record before giving up during enrollment. Total wait is roughly (attempts - 1) x delay seconds. Increase this (and/or the delay) if records routinely need longer to propagate. Defaults to 3.
         * **DnsPropagationDelaySeconds** - Seconds to wait between DNS propagation polling attempts during enrollment. Total wait is roughly (attempts - 1) x delay seconds. Defaults to 10. Note: enrollment blocks for this duration, so keep the combined wait reasonable — propagation is best-effort and SSL Store re-checks on its own schedule.
-        * **DcvPollTimeoutSeconds** - After a DNS-validated enrollment publishes its CNAME record, the plugin polls SSL Store for up to this many seconds for the certificate to be issued and, if issued in time, returns it directly from the enrollment call (like ACME). If the window expires, enrollment returns pending and the certificate is retrieved on the next CA sync. Enrollment blocks for up to this duration. Set to 0 to disable polling. Defaults to 90.
+        * **DcvPollTimeoutSeconds** - After a DNS-validated enrollment publishes its CNAME record, the plugin polls SSL Store for up to this many seconds for the certificate to be issued and, if issued in time, returns it directly from the enrollment call (like ACME). If the window expires the enrollment returns pending and the certificate is retrieved on the next CA sync. Enrollment blocks for up to this duration. Set to 0 to disable polling. Defaults to 90.
 
 2. ### Template (Product) Configuration
 
