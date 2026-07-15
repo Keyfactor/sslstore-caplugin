@@ -19,6 +19,7 @@ namespace Keyfactor.AnyGateway.SslStore
             public static string DnsVerificationServer = "DnsVerificationServer";
             public static string DnsPropagationMaxAttempts = "DnsPropagationMaxAttempts";
             public static string DnsPropagationDelaySeconds = "DnsPropagationDelaySeconds";
+            public static string DcvPollTimeoutSeconds = "DcvPollTimeoutSeconds";
         }
 
         public class Config
@@ -33,6 +34,7 @@ namespace Keyfactor.AnyGateway.SslStore
             public string DnsVerificationServer { get; set; }
             public int DnsPropagationMaxAttempts { get; set; } = 3;
             public int DnsPropagationDelaySeconds { get; set; } = 10;
+            public int DcvPollTimeoutSeconds { get; set; } = 90;
         }
 
         public static Dictionary<string, PropertyConfigInfo> GetPluginAnnotations()
@@ -115,6 +117,17 @@ namespace Keyfactor.AnyGateway.SslStore
                                "the combined wait reasonable — propagation is best-effort and SSL Store re-checks on its own schedule.",
                     Hidden = false,
                     DefaultValue = 10,
+                    Type = "Number"
+                },
+                [ConfigConstants.DcvPollTimeoutSeconds] = new PropertyConfigInfo()
+                {
+                    Comments = "After a DNS-validated enrollment publishes its CNAME record, the plugin polls SSL Store for up " +
+                               "to this many seconds for the certificate to be issued and, if issued in time, returns it directly " +
+                               "from the enrollment call (like ACME). If the window expires the enrollment returns pending and the " +
+                               "certificate is retrieved on the next CA sync. Enrollment blocks for up to this duration, so keep it " +
+                               "reasonable; SSL Store DCV is asynchronous and may take longer. Set to 0 to disable polling. Defaults to 90.",
+                    Hidden = false,
+                    DefaultValue = 90,
                     Type = "Number"
                 }
             };

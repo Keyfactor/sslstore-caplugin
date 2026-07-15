@@ -208,6 +208,9 @@ When registering the SSL Store CA in the AnyCA Gateway, you'll need to provide t
 | **RenewalWindow** | Days before order expiry to trigger renewal vs. reissue | No | `30` |
 | **DnsValidationEnabled** | Enable automated DNS (CNAME) domain control validation instead of email approvers | No | `false` |
 | **DnsVerificationServer** | Optional authoritative/internal DNS server IP used to verify record propagation | No | (empty) |
+| **DnsPropagationMaxAttempts** | Times to poll DNS for the validation record before giving up during enrollment | No | `3` |
+| **DnsPropagationDelaySeconds** | Seconds between DNS propagation polling attempts (enrollment blocks for this) | No | `10` |
+| **DcvPollTimeoutSeconds** | Seconds to poll SSL Store for issuance after publishing the CNAME; returns the cert inline if issued in time (`0` disables) | No | `90` |
 
 ### Gateway Registration Notes
 
@@ -244,6 +247,7 @@ Populate using the configuration fields collected in the [requirements](#require
 * **DnsVerificationServer** - Optional. IP address of an authoritative or internal DNS server used to confirm record propagation. Leave empty to verify against public resolvers (Google, Cloudflare, OpenDNS, Quad9).
 * **DnsPropagationMaxAttempts** - Number of times to poll DNS for the validation record before giving up during enrollment. Total wait is roughly `(attempts - 1) × delay` seconds. Default is 3.
 * **DnsPropagationDelaySeconds** - Seconds to wait between DNS propagation polling attempts. Enrollment blocks for this duration, so keep the combined wait reasonable — propagation is best-effort and SSL Store re-checks on its own schedule. Default is 10.
+* **DcvPollTimeoutSeconds** - After a DNS-validated enrollment publishes its CNAME record, the plugin polls SSL Store for up to this many seconds for the certificate to be issued and, if issued in time, returns it directly from the enrollment call (like ACME). If the window expires, enrollment returns pending and the certificate is retrieved on the next CA sync. Enrollment blocks for up to this duration; SSL Store DCV is asynchronous and may take longer. Set to `0` to disable polling. Default is 90.
 
 ### Automated DNS (CNAME) Domain Validation
 
@@ -269,9 +273,11 @@ is `True`), enrollment proceeds as follows:
 2. SSL Store returns the CNAME validation record (`CNAMEAuthName` → `CNAMEAuthValue`).
 3. The plugin resolves the CNAME validator mapped to the domain and publishes the CNAME record.
 4. The plugin verifies the record has propagated to public (or the configured) DNS resolvers.
-5. Enrollment returns as pending external validation; SSL Store completes validation on its
-   own schedule and the certificate is retrieved on the next sync / status check.
-6. Once the order is issued, the plugin makes a best-effort attempt to remove the CNAME record.
+5. The plugin polls SSL Store for issuance for up to `DcvPollTimeoutSeconds`. If the certificate
+   is issued within that window, it is downloaded and returned directly from the enrollment call.
+6. Otherwise enrollment returns as pending external validation; SSL Store completes validation on
+   its own schedule and the certificate is retrieved on the next sync / status check.
+7. Once the order is issued, the plugin makes a best-effort attempt to remove the CNAME record.
 
 A CNAME DNS validator for the relevant zone must be deployed and mapped to the domain in the
 gateway's Domain Validation configuration; otherwise enrollment fails with a "no DNS provider

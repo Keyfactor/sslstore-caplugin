@@ -33,6 +33,9 @@ namespace Keyfactor.AnyGateway.SslStore
         /// given domain is chosen via the AnyCA Gateway's Domain Validation mapping, not here.
         /// </summary>
         private const string DnsValidationType = "cname";
+
+        /// <summary>Seconds between polls while waiting for SSL Store to issue a DNS-validated order.</summary>
+        private const int DcvPollIntervalSeconds = 15;
         private RequestManager _requestManager;
         private IAnyCAPluginConfigProvider Config { get; set; }
         private ICertificateDataReader _certDataReader;
@@ -83,11 +86,11 @@ namespace Keyfactor.AnyGateway.SslStore
                 flow.Step("CreateRequestManager", () => _requestManager = new RequestManager(this));
 
                 _logger.LogInformation(
-                    "SslStore CAPlugin initialized. Enabled={Enabled}, SSLStoreURL={Url}, PartnerCode set={HasPartner}, AuthToken set={HasToken}, PageSize={PageSize}, RenewalWindow={RenewalWindow}, DnsValidationEnabled={DnsEnabled}, DnsValidationType={DnsType}, DnsVerificationServer={DnsServer}, DnsPropagationMaxAttempts={DnsAttempts}, DnsPropagationDelaySeconds={DnsDelay}, DomainValidatorFactory available={HasFactory}",
+                    "SslStore CAPlugin initialized. Enabled={Enabled}, SSLStoreURL={Url}, PartnerCode set={HasPartner}, AuthToken set={HasToken}, PageSize={PageSize}, RenewalWindow={RenewalWindow}, DnsValidationEnabled={DnsEnabled}, DnsValidationType={DnsType}, DnsVerificationServer={DnsServer}, DnsPropagationMaxAttempts={DnsAttempts}, DnsPropagationDelaySeconds={DnsDelay}, DcvPollTimeoutSeconds={DcvPoll}, DomainValidatorFactory available={HasFactory}",
                     _config.Enabled, _config.SSLStoreURL, !string.IsNullOrEmpty(_config.PartnerCode), !string.IsNullOrEmpty(_config.AuthToken),
                     PageSize, RenewalWindow, _config.DnsValidationEnabled, DnsValidationType,
                     string.IsNullOrEmpty(_config.DnsVerificationServer) ? "(public resolvers)" : _config.DnsVerificationServer,
-                    _config.DnsPropagationMaxAttempts, _config.DnsPropagationDelaySeconds, _validatorFactory != null);
+                    _config.DnsPropagationMaxAttempts, _config.DnsPropagationDelaySeconds, _config.DcvPollTimeoutSeconds, _validatorFactory != null);
             }
             catch (Exception ex)
             {
@@ -329,6 +332,21 @@ namespace Keyfactor.AnyGateway.SslStore
                                     StatusMessage = dnsError
                                 };
                             }
+
+                            // The CNAME is published; poll SSL Store for issuance and, if it issues within the
+                            // configured window, return the certificate directly from this enrollment call
+                            // (ACME-style). Otherwise fall through to a pending result and let CA sync finish it.
+                            var compositeId = BuildCompositeRequestId(enrollmentResponse.TheSslStoreOrderId, enrollmentResponse.PartnerOrderId);
+                            EnrollmentResult issuedResult = null;
+                            await flow.StepAsync("PollForIssuance",
+                                async () => issuedResult = await TryPollForIssuedCertAsync(compositeId));
+                            if (issuedResult != null)
+                            {
+                                flow.Step("PollResult", "issued during poll window");
+                                flow.EndBranch();
+                                return issuedResult;
+                            }
+                            flow.Skip("PollResult", "not issued within poll window; returning pending");
                         }
                         flow.EndBranch();
                     }
@@ -704,6 +722,73 @@ namespace Keyfactor.AnyGateway.SslStore
 
             var endEntityCert = X509Utilities.ExtractEndEntityCertificateContents(fullChain, null);
             return Convert.ToBase64String(endEntityCert.RawData);
+        }
+
+        /// <summary>
+        /// After a DNS-validated order's CNAME is published, polls SSL Store (via <see cref="GetSingleRecord"/>)
+        /// for up to <c>DcvPollTimeoutSeconds</c> for the certificate to be issued. Returns a GENERATED
+        /// <see cref="EnrollmentResult"/> carrying the issued leaf certificate if it issues within the window,
+        /// or <c>null</c> if the window expires (caller then returns its pending/EXTERNALVALIDATION result).
+        /// No-op (returns null) when polling is disabled or the request ID is missing.
+        /// </summary>
+        private async Task<EnrollmentResult> TryPollForIssuedCertAsync(string caRequestId)
+        {
+            if (_config.DcvPollTimeoutSeconds <= 0)
+            {
+                _logger.LogTrace("Issuance polling disabled (DcvPollTimeoutSeconds=0); returning pending.");
+                return null;
+            }
+
+            if (string.IsNullOrEmpty(caRequestId))
+            {
+                _logger.LogWarning("No CARequestID available to poll for issuance; returning pending.");
+                return null;
+            }
+
+            var deadline = DateTime.UtcNow.AddSeconds(_config.DcvPollTimeoutSeconds);
+            var interval = TimeSpan.FromSeconds(DcvPollIntervalSeconds);
+            _logger.LogInformation("Polling SSL Store for issuance of '{CaRequestId}' for up to {Seconds}s (interval {Interval}s).",
+                caRequestId, _config.DcvPollTimeoutSeconds, DcvPollIntervalSeconds);
+
+            var attempt = 0;
+            while (DateTime.UtcNow < deadline)
+            {
+                attempt++;
+                AnyCAPluginCertificate record = null;
+                try
+                {
+                    record = await GetSingleRecord(caRequestId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Issuance poll attempt {Attempt} for '{CaRequestId}' threw; will retry.", attempt, caRequestId);
+                }
+
+                if (record != null && record.Status == (int)EndEntityStatus.GENERATED && !string.IsNullOrEmpty(record.Certificate))
+                {
+                    _logger.LogInformation("Order '{CaRequestId}' issued after {Attempt} poll(s); returning certificate directly.", caRequestId, attempt);
+                    return new EnrollmentResult
+                    {
+                        Status = (int)EndEntityStatus.GENERATED,
+                        CARequestID = caRequestId,
+                        Certificate = record.Certificate,
+                        StatusMessage = $"Certificate issued and retrieved for order {caRequestId}."
+                    };
+                }
+
+                _logger.LogTrace("Issuance poll attempt {Attempt} for '{CaRequestId}': status={Status}, cert={CertState}.",
+                    attempt, caRequestId, record?.Status, string.IsNullOrEmpty(record?.Certificate) ? "empty" : "present");
+
+                // Don't sleep past the deadline.
+                if (DateTime.UtcNow.Add(interval) >= deadline)
+                    break;
+
+                await Task.Delay(interval);
+            }
+
+            _logger.LogInformation("Order '{CaRequestId}' not issued within {Seconds}s after {Attempts} attempt(s); returning pending.",
+                caRequestId, _config.DcvPollTimeoutSeconds, attempt);
+            return null;
         }
 
         private string ValidateEmails(EmailApproverResponse validEmails, string[] arrayApproverEmails, EnrollmentProductInfo productInfo, int count)
