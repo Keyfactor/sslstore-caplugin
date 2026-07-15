@@ -15,6 +15,11 @@ namespace Keyfactor.AnyGateway.SslStore
             public static string PageSize = "PageSize";
             public static string Enabled = "Enabled";
             public static string RenewalWindow = "RenewalWindow";
+            public static string DnsValidationEnabled = "DnsValidationEnabled";
+            public static string DnsVerificationServer = "DnsVerificationServer";
+            public static string DnsPropagationMaxAttempts = "DnsPropagationMaxAttempts";
+            public static string DnsPropagationDelaySeconds = "DnsPropagationDelaySeconds";
+            public static string DcvPollTimeoutSeconds = "DcvPollTimeoutSeconds";
         }
 
         public class Config
@@ -25,6 +30,11 @@ namespace Keyfactor.AnyGateway.SslStore
             public int PageSize { get; set; } = DefaultPageSize;
             public bool Enabled { get; set; }
             public int RenewalWindow { get; set; } = 30;
+            public bool DnsValidationEnabled { get; set; }
+            public string DnsVerificationServer { get; set; }
+            public int DnsPropagationMaxAttempts { get; set; } = 3;
+            public int DnsPropagationDelaySeconds { get; set; } = 10;
+            public int DcvPollTimeoutSeconds { get; set; } = 90;
         }
 
         public static Dictionary<string, PropertyConfigInfo> GetPluginAnnotations()
@@ -71,6 +81,53 @@ namespace Keyfactor.AnyGateway.SslStore
                     Comments = "Number of days before order expiry to trigger a renewal instead of a reissue.",
                     Hidden = false,
                     DefaultValue = 30,
+                    Type = "Number"
+                },
+                [ConfigConstants.DnsValidationEnabled] = new PropertyConfigInfo()
+                {
+                    Comments = "Enable automated DNS (CNAME) domain control validation. When enabled, the plugin " +
+                               "requests CNAME-based validation from SSL Store and publishes the returned record via the " +
+                               "DNS provider plugin resolved by the AnyCA Gateway. Requires a DNS provider plugin (e.g. Azure, " +
+                               "Route53, Cloudflare) to be deployed and configured on the gateway. When disabled, email approver validation is used.",
+                    Hidden = false,
+                    DefaultValue = false,
+                    Type = "Bool"
+                },
+                [ConfigConstants.DnsVerificationServer] = new PropertyConfigInfo()
+                {
+                    Comments = "Optional. IP address of an authoritative/internal DNS server to use when verifying record " +
+                               "propagation. Leave empty to verify against public DNS resolvers (Google, Cloudflare, OpenDNS, Quad9).",
+                    Hidden = false,
+                    DefaultValue = "",
+                    Type = "String"
+                },
+                [ConfigConstants.DnsPropagationMaxAttempts] = new PropertyConfigInfo()
+                {
+                    Comments = "Number of times to poll DNS for the validation record before giving up during enrollment. " +
+                               "Total wait is roughly (attempts - 1) x delay seconds. Increase this (and/or the delay) if records " +
+                               "routinely need longer to propagate. Defaults to 3.",
+                    Hidden = false,
+                    DefaultValue = 3,
+                    Type = "Number"
+                },
+                [ConfigConstants.DnsPropagationDelaySeconds] = new PropertyConfigInfo()
+                {
+                    Comments = "Seconds to wait between DNS propagation polling attempts during enrollment. Total wait is roughly " +
+                               "(attempts - 1) x delay seconds. Defaults to 10. Note: enrollment blocks for this duration, so keep " +
+                               "the combined wait reasonable — propagation is best-effort and SSL Store re-checks on its own schedule.",
+                    Hidden = false,
+                    DefaultValue = 10,
+                    Type = "Number"
+                },
+                [ConfigConstants.DcvPollTimeoutSeconds] = new PropertyConfigInfo()
+                {
+                    Comments = "After a DNS-validated enrollment publishes its CNAME record, the plugin polls SSL Store for up " +
+                               "to this many seconds for the certificate to be issued and, if issued in time, returns it directly " +
+                               "from the enrollment call (like ACME). If the window expires the enrollment returns pending and the " +
+                               "certificate is retrieved on the next CA sync. Enrollment blocks for up to this duration, so keep it " +
+                               "reasonable; SSL Store DCV is asynchronous and may take longer. Set to 0 to disable polling. Defaults to 90.",
+                    Hidden = false,
+                    DefaultValue = 90,
                     Type = "Number"
                 }
             };
