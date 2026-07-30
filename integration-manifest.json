@@ -1,7 +1,7 @@
 {
     "$schema": "https://keyfactor.github.io/v2/integration-manifest-schema.json",
-    "name": "SSL Store AnyCA REST plugin",
     "release_dir": "SslStoreCaProxy/bin/Release",
+    "name": "SSL Store AnyCA REST plugin",
     "release_project": "SslStoreCaProxy/SslStoreCaProxy.csproj",
     "description": "AnyCA Gateway REST plugin that extends SSL Store Certificate Authority Service to Keyfactor Command. SSL Store is a certificate reseller providing access to 80+ certificate products from vendors including DigiCert, Sectigo, RapidSSL, GeoTrust, and Comodo through a single API.",
     "status": "production",
