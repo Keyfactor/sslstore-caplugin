@@ -7,8 +7,7 @@ namespace Keyfactor.AnyGateway.SslStore.Interfaces
     public interface IRequestManager
     {
         NewOrderRequest GetEnrollmentRequest(string csr, string subject, Dictionary<string, string[]> san,
-            EnrollmentProductInfo productInfo, IAnyCAPluginConfigProvider configProvider, bool isRenewalOrder,
-            bool useDnsValidation = false);
+            EnrollmentProductInfo productInfo, IAnyCAPluginConfigProvider configProvider, bool isRenewalOrder);
 
         AuthRequest GetAuthRequest();
         ReIssueRequest GetReIssueRequest(INewOrderResponse orderData, string csr, bool isRenewal);
