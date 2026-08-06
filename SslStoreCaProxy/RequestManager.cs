@@ -25,11 +25,10 @@ namespace Keyfactor.AnyGateway.SslStore
         }
 
         public NewOrderRequest GetEnrollmentRequest(string csr, string subject, Dictionary<string, string[]> san,
-            EnrollmentProductInfo productInfo, IAnyCAPluginConfigProvider configProvider, bool isRenewalOrder,
-            bool useDnsValidation = false)
+            EnrollmentProductInfo productInfo, IAnyCAPluginConfigProvider configProvider, bool isRenewalOrder)
         {
             var pemCsr = ConvertCsrToPem(csr);
-            return BuildNewOrderRequest(productInfo, pemCsr, subject, san, isRenewalOrder, useDnsValidation);
+            return BuildNewOrderRequest(productInfo, pemCsr, subject, san, isRenewalOrder);
         }
 
         private string ConvertCsrToPem(string csr)
@@ -266,7 +265,7 @@ namespace Keyfactor.AnyGateway.SslStore
         }
 
         private NewOrderRequest BuildNewOrderRequest(EnrollmentProductInfo productInfo,
-            string csr, string subject, Dictionary<string, string[]> san, bool isRenewal, bool useDnsValidation = false)
+            string csr, string subject, Dictionary<string, string[]> san, bool isRenewal)
         {
             var p = productInfo.ProductParameters;
 
@@ -339,7 +338,7 @@ namespace Keyfactor.AnyGateway.SslStore
                 },
                 ApproverEmail = GetParam(p, "Approver Email"),
                 FileAuthDvIndicator = false,
-                CnameAuthDvIndicator = useDnsValidation,
+                CnameAuthDvIndicator = false,
                 SignatureHashAlgorithm = GetParam(p, "Signature Hash Algorithm") ?? "PREFER_SHA2"
             };
         }

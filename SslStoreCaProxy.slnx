@@ -1,11 +1,3 @@
 <Solution>
   <Project Path="SslStoreCaProxy/SslStoreCaProxy.csproj" />
-  <Folder Name="/postman/">
-    <File Path="postman/SslStoreApi.postman_collection.json" />
-    <File Path="postman/SslStoreApi.postman_environment.json" />
-    <File Path="postman/README.md" />
-  </Folder>
-  <Folder Name="/docs/">
-    <File Path="docs/enrollment-flows.md" />
-  </Folder>
 </Solution>
