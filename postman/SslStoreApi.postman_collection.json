@@ -1,0 +1,257 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    "name": "SSL Store WBAPI (SSL Store CA plugin)",
+    "description": "The actual SSL Store Web-Based API (WBAPI) calls the SSL Store CA plugin makes, grouped by operation flow. Use it to reproduce/debug what the plugin does against SSL Store directly.\n\n## Base URL\n- Sandbox: `https://sandbox-wbapi.thesslstore.com`\n- Production: `https://wbapi.thesslstore.com`\n\n## Authentication\nSSL Store authenticates **in the request body**, not via headers. Every request includes an `AuthRequest` object with your `PartnerCode` and `AuthToken`. Set these in the `SSL Store WBAPI` environment. All calls are `POST` with `Content-Type: application/json`.\n\n## Order identifiers\nSSL Store returns `TheSSLStoreOrderID` (and `PartnerOrderID`) on `neworder`. Most follow-up calls take either `TheSSLStoreOrderID` or the `CustomOrderID` you supplied. Save `TheSSLStoreOrderID` from the neworder response into the `theSslStoreOrderId` variable and the follow-up calls will use it.\n\nSee [`../docs/enrollment-flows.md`](../docs/enrollment-flows.md) for how these map to the plugin operations.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "https://sandbox-wbapi.thesslstore.com" },
+    { "key": "partnerCode", "value": "" },
+    { "key": "authToken", "value": "" },
+    { "key": "productCode", "value": "positivessl" },
+    { "key": "commonName", "value": "www.example.com" },
+    { "key": "csrPem", "value": "-----BEGIN CERTIFICATE REQUEST-----\n...replace with your CSR...\n-----END CERTIFICATE REQUEST-----" },
+    { "key": "approverEmail", "value": "admin@example.com" },
+    { "key": "validityDays", "value": "365" },
+    { "key": "webServerType", "value": "Other" },
+    { "key": "customOrderId", "value": "postman-{{$guid}}" },
+    { "key": "theSslStoreOrderId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Enroll - New (Email DCV)",
+      "description": "New DV/OV order validated by approver email. Flow: approverlist -> neworder -> (poll) status -> download.",
+      "item": [
+        {
+          "name": "Approver list",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"AuthRequest\": { \"PartnerCode\": \"{{partnerCode}}\", \"AuthToken\": \"{{authToken}}\" },\n  \"ProductCode\": \"{{productCode}}\",\n  \"DomainName\": \"{{commonName}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/order/approverlist",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "order", "approverlist"]
+            },
+            "description": "Returns the list of approver emails allowed for the domain. The plugin validates the configured Approver Email against this list before ordering."
+          }
+        },
+        {
+          "name": "New order (email DCV)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.TheSSLStoreOrderID) { pm.collectionVariables.set('theSslStoreOrderId', j.TheSSLStoreOrderID); }",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"AuthRequest\": { \"PartnerCode\": \"{{partnerCode}}\", \"AuthToken\": \"{{authToken}}\" },\n  \"CustomOrderID\": \"{{customOrderId}}\",\n  \"ProductCode\": \"{{productCode}}\",\n  \"ValidityPeriod\": {{validityDays}},\n  \"ServerCount\": 1,\n  \"CSR\": \"{{csrPem}}\",\n  \"DomainName\": \"{{commonName}}\",\n  \"WebServerType\": \"{{webServerType}}\",\n  \"isCUOrder\": false,\n  \"isRenewalOrder\": false,\n  \"isTrialOrder\": false,\n  \"ApproverEmail\": \"{{approverEmail}}\",\n  \"AddInstallationSupport\": false,\n  \"SignatureHashAlgorithm\": \"PREFER_SHA2\",\n  \"AdminContact\": {\n    \"FirstName\": \"Jane\", \"LastName\": \"Doe\", \"Phone\": \"5555555555\", \"Email\": \"{{approverEmail}}\",\n    \"OrganizationName\": \"Example Inc\", \"AddressLine1\": \"123 Main St\", \"City\": \"Anytown\",\n    \"Region\": \"WA\", \"PostalCode\": \"98000\", \"Country\": \"US\"\n  },\n  \"TechnicalContact\": {\n    \"FirstName\": \"Jane\", \"LastName\": \"Doe\", \"Phone\": \"5555555555\", \"Email\": \"{{approverEmail}}\",\n    \"OrganizationName\": \"Example Inc\", \"AddressLine1\": \"123 Main St\", \"City\": \"Anytown\",\n    \"Region\": \"WA\", \"PostalCode\": \"98000\", \"Country\": \"US\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/order/neworder",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "order", "neworder"]
+            },
+            "description": "Creates the order. On success the response carries TheSSLStoreOrderID/PartnerOrderID (the test script saves TheSSLStoreOrderID). Contacts are required for OV; DV products (e.g. positivessl) may ignore them."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Enroll - New (DNS CNAME DCV)",
+      "description": "New order validated by CNAME. Flow: neworder (CNAMEAuthDVIndicator=true) -> plugin publishes the CNAME the response returns -> (poll) status -> download. Set CNAMEAuthDVIndicator to true.",
+      "item": [
+        {
+          "name": "New order (CNAME DCV)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "try {",
+                  "  var j = pm.response.json();",
+                  "  if (j.TheSSLStoreOrderID) { pm.collectionVariables.set('theSslStoreOrderId', j.TheSSLStoreOrderID); }",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"AuthRequest\": { \"PartnerCode\": \"{{partnerCode}}\", \"AuthToken\": \"{{authToken}}\" },\n  \"CustomOrderID\": \"{{customOrderId}}\",\n  \"ProductCode\": \"{{productCode}}\",\n  \"ValidityPeriod\": {{validityDays}},\n  \"ServerCount\": 1,\n  \"CSR\": \"{{csrPem}}\",\n  \"DomainName\": \"{{commonName}}\",\n  \"WebServerType\": \"{{webServerType}}\",\n  \"isCUOrder\": false,\n  \"isRenewalOrder\": false,\n  \"isTrialOrder\": false,\n  \"CNAMEAuthDVIndicator\": true,\n  \"ApproverEmail\": \"{{approverEmail}}\",\n  \"AddInstallationSupport\": false,\n  \"SignatureHashAlgorithm\": \"PREFER_SHA2\",\n  \"AdminContact\": {\n    \"FirstName\": \"Jane\", \"LastName\": \"Doe\", \"Phone\": \"5555555555\", \"Email\": \"{{approverEmail}}\",\n    \"OrganizationName\": \"Example Inc\", \"AddressLine1\": \"123 Main St\", \"City\": \"Anytown\",\n    \"Region\": \"WA\", \"PostalCode\": \"98000\", \"Country\": \"US\"\n  },\n  \"TechnicalContact\": {\n    \"FirstName\": \"Jane\", \"LastName\": \"Doe\", \"Phone\": \"5555555555\", \"Email\": \"{{approverEmail}}\",\n    \"OrganizationName\": \"Example Inc\", \"AddressLine1\": \"123 Main St\", \"City\": \"Anytown\",\n    \"Region\": \"WA\", \"PostalCode\": \"98000\", \"Country\": \"US\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/order/neworder",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "order", "neworder"]
+            },
+            "description": "CNAMEAuthDVIndicator=true requests CNAME DCV. The response contains the CNAME record (CNAMEAuthName -> CNAMEAuthValue, and per-domain entries under OrderStatus.DomainAuthVettingStatus) that the plugin publishes via the mapped CNAME DNS validator."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Renew / Reissue",
+      "description": "Renew = new order linked to the prior order (RelatedTheSSLStoreOrderID + isRenewalOrder). Reissue = same order, new CSR.",
+      "item": [
+        {
+          "name": "Order status (prior order)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"AuthRequest\": { \"PartnerCode\": \"{{partnerCode}}\", \"AuthToken\": \"{{authToken}}\" },\n  \"TheSSLStoreOrderID\": \"{{theSslStoreOrderId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/order/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "order", "status"]
+            },
+            "description": "The plugin reads the prior order's expiry here to decide renew vs reissue against RenewalWindow."
+          }
+        },
+        {
+          "name": "Renewal (new order)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"AuthRequest\": { \"PartnerCode\": \"{{partnerCode}}\", \"AuthToken\": \"{{authToken}}\" },\n  \"CustomOrderID\": \"{{customOrderId}}\",\n  \"ProductCode\": \"{{productCode}}\",\n  \"RelatedTheSSLStoreOrderID\": \"{{theSslStoreOrderId}}\",\n  \"ValidityPeriod\": {{validityDays}},\n  \"ServerCount\": 1,\n  \"CSR\": \"{{csrPem}}\",\n  \"DomainName\": \"{{commonName}}\",\n  \"WebServerType\": \"{{webServerType}}\",\n  \"isRenewalOrder\": true,\n  \"ApproverEmail\": \"{{approverEmail}}\",\n  \"SignatureHashAlgorithm\": \"PREFER_SHA2\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/order/neworder",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "order", "neworder"]
+            },
+            "description": "Renewal is a new order with isRenewalOrder=true and RelatedTheSSLStoreOrderID set to the prior order."
+          }
+        },
+        {
+          "name": "Reissue (same order)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"AuthRequest\": { \"PartnerCode\": \"{{partnerCode}}\", \"AuthToken\": \"{{authToken}}\" },\n  \"TheSSLStoreOrderID\": \"{{theSslStoreOrderId}}\",\n  \"CustomOrderID\": \"{{customOrderId}}\",\n  \"CSR\": \"{{csrPem}}\",\n  \"WebServerType\": \"{{webServerType}}\",\n  \"isRenewalOrder\": false,\n  \"isWildCard\": false,\n  \"CNAMEAuthDVIndicator\": false,\n  \"FileAuthDVIndicator\": false,\n  \"PreferEnrollmentLink\": false,\n  \"ReissueEmail\": \"{{approverEmail}}\",\n  \"ApproverEmails\": \"{{approverEmail}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/order/reissue",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "order", "reissue"]
+            },
+            "description": "Reissue keeps the same order and submits a new CSR."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Status & Download (GetSingleRecord)",
+      "description": "Poll a single order and download the issued certificate. Flow: status -> download when Active.",
+      "item": [
+        {
+          "name": "Order status",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"AuthRequest\": { \"PartnerCode\": \"{{partnerCode}}\", \"AuthToken\": \"{{authToken}}\" },\n  \"TheSSLStoreOrderID\": \"{{theSslStoreOrderId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/order/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "order", "status"]
+            },
+            "description": "Returns OrderStatus.MajorStatus (Active/Pending/Cancelled). The plugin maps Active->GENERATED, Pending/Initial->EXTERNALVALIDATION, Cancelled->REVOKED. Can also query by CustomOrderID instead of TheSSLStoreOrderID."
+          }
+        },
+        {
+          "name": "Download certificate",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"AuthRequest\": { \"PartnerCode\": \"{{partnerCode}}\", \"AuthToken\": \"{{authToken}}\" },\n  \"TheSSLStoreOrderID\": \"{{theSslStoreOrderId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/order/download",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "order", "download"]
+            },
+            "description": "Returns the certificate chain (Certificates[].FileContent). The plugin extracts the end-entity certificate. Only meaningful once the order is Active."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Synchronize",
+      "description": "Paginated order listing used by CA sync. Flow: query (per page) -> status -> download per order.",
+      "item": [
+        {
+          "name": "Query orders (page)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"AuthRequest\": { \"PartnerCode\": \"{{partnerCode}}\", \"AuthToken\": \"{{authToken}}\" },\n  \"PageNumber\": 1,\n  \"PageSize\": 100\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/order/query",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "order", "query"]
+            },
+            "description": "Returns a page of orders. The plugin walks pages (PageNumber++) until a short page, then fetches status + download for each. Optional filters: StartDate, EndDate, DomainName, ProductCode."
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Revoke (Refund request)",
+      "description": "SSL Store models revocation as a refund request.",
+      "item": [
+        {
+          "name": "Refund request (revoke)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"AuthRequest\": { \"PartnerCode\": \"{{partnerCode}}\", \"AuthToken\": \"{{authToken}}\" },\n  \"TheSSLStoreOrderID\": \"{{theSslStoreOrderId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/rest/order/refundrequest",
+              "host": ["{{baseUrl}}"],
+              "path": ["rest", "order", "refundrequest"]
+            },
+            "description": "Revokes/refunds the order. Can also target CustomOrderID or SerialNumber. AuthResponse.isError indicates failure."
+          }
+        }
+      ]
+    }
+  ]
+}
