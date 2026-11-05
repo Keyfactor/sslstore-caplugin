@@ -1,4 +1,4 @@
-# v2.1.0
+# v2.0.0
 * Added support for the generic DNS provider plugin framework (Keyfactor.AnyGateway.IAnyCAPlugin 3.3.0)
 * Automated DNS (CNAME) domain control validation: when enabled, the plugin requests CNAME-based
   validation from SSL Store and publishes the returned record via the DNS provider plugin resolved
@@ -16,20 +16,6 @@
   downloadable certificate are skipped instead of storing empty cert bytes (which previously
   crashed the gateway certificate search with "m_safeCertContext is an invalid handle")
 * Added FlowLogger step tracing and expanded operational logging across all plugin operations
-
-# v2.0.0
-* Converted from AnyCA Gateway (DB) to AnyCA Gateway REST plugin architecture
-* Migrated from CAProxy.AnyGateway (BaseCAConnector) to IAnyCAPlugin interface
-* Fully async operations throughout (no more Task.Run().Result blocking)
-* Self-describing plugin configuration with annotations (no external template JSON files)
-* Built-in product registry with 80+ certificate products
-* Smart renewal vs. reissue logic with configurable renewal window
-* Uses CustomOrderId for stable order tracking
-* End-entity certificate extraction using X509Utilities.ExtractEndEntityCertificateContents
-* GetSingleRecord now downloads and returns the actual certificate
-* Connection validation with required field checks
-* Enable/disable toggle for CA connector lifecycle management
-* Removed Keyfactor API client dependency (no more direct template updates)
 
 # v1.1.1
 * SSL Store Api Changed Encoding Rules, needed to fix integration to match
